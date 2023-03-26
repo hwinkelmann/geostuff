@@ -152,18 +152,12 @@ namespace Nitro.Geometry
             return new Vector3(a.X / factor, a.Y / factor, a.Z / factor);
         }
 
-        public static bool operator ==(Vector3 a, Vector3 b)
+        public static bool operator ==(Vector3? a, Vector3? b)
         {
-            if (System.Object.ReferenceEquals(a, b))
-                return true;
-
-            if (((object)a) == null || ((object)b) == null)
-                return false;
-
-            return a.X == b.X && a.Y == b.Y && a.Z == b.Z;
+            return a?.X == b?.X && a?.Y == b?.Y && a?.Z == b?.Z;
         }
 
-        public static bool operator !=(Vector3 a, Vector3 b)
+        public static bool operator !=(Vector3? a, Vector3? b)
         {
             return !(a == b);
         }
