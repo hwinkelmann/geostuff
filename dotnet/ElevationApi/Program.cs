@@ -1,3 +1,9 @@
+using ElevationApi.Dem;
+
+var dem = new AsterElevationModel(@"C:\Users\hannes\Desktop\aster");
+
+var elevation = dem.GetElevation(48.3, 8.5);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
