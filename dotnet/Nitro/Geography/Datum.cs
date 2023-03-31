@@ -37,8 +37,8 @@ namespace Nitro.Geography
             double N = radiusOfCurvature(coordinate.Latitude);
 
             Vector3 Result = new Vector3();
-            Result.X = ((N + coordinate.Elevation) * Math.Cos(radLat) * Math.Cos(radLon) + xShift);
-            Result.Y = ((N + coordinate.Elevation) * Math.Cos(radLat) * Math.Sin(radLon) + yShift);
+            Result.X = ((N + coordinate.Elevation ?? 0) * Math.Cos(radLat) * Math.Cos(radLon) + xShift);
+            Result.Y = ((N + coordinate.Elevation ?? 0) * Math.Cos(radLat) * Math.Sin(radLon) + yShift);
             Result.Z = (((b * b * N) / (a * a)) * Math.Sin(radLat) + zShift);
 
             return Result;

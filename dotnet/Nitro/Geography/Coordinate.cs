@@ -1,5 +1,6 @@
 ﻿using Nitro.Geometry;
 using System.Globalization;
+using System.Text.Json.Serialization;
 
 namespace Nitro.Geography
 {
@@ -9,11 +10,12 @@ namespace Nitro.Geography
 
         public double Longitude { get; set; }
 
-        public float Elevation;
+        public float? Elevation { get; set; }
         
         public Coordinate()
         {
-            Latitude = Longitude = Elevation = 0;
+            Latitude = Longitude = 0;
+            Elevation = 0;
         }
 
         public Coordinate(double latitude, double longitude) : this(latitude, longitude, 0) { }
@@ -70,6 +72,7 @@ namespace Nitro.Geography
                 Longitude -= 360;
         }
 
+        [JsonIgnore]
         public bool IsOk
         {
             get
@@ -132,7 +135,7 @@ namespace Nitro.Geography
 
         public static implicit operator Vector3(Coordinate coord)
         {
-            return new Vector3(coord.Latitude, coord.Longitude, coord.Elevation);
+            return new Vector3(coord.Latitude, coord.Longitude, coord.Elevation ?? 0);
         }
 
         public static implicit operator Coordinate(Vector2 vec)

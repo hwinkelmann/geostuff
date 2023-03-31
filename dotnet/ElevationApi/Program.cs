@@ -1,12 +1,15 @@
 using ElevationApi.Dem;
 
-var dem = new AsterElevationModel(@"C:\Users\hannes\Desktop\aster");
-
-var elevation = dem.GetElevation(48.3, 8.5);
+// Read configration from environment variables
+var dataFolder = Environment.GetEnvironmentVariable("DEM_DATA") ?? @"C:\Users\hannes\Desktop\aster";
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.AddScoped<IElevationModel>((provider) =>
+{
+    return new AsterElevationModel(dataFolder);
+});
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -19,6 +22,8 @@ builder.Services.AddSwaggerGen(options => {
         Version = "v1",
     });
 });
+
+builder.Services.AddResponseCompression();
 
 var app = builder.Build();
 

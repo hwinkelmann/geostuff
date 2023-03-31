@@ -121,8 +121,8 @@ namespace Nitro.Geography
             MaxX = coords.Max(c => c.Latitude);
             MinY = coords.Min(c => c.Longitude);
             MaxY = coords.Max(c => c.Longitude);
-            MinZ = coords.Min(c => c.Elevation);
-            MaxZ = coords.Max(c => c.Elevation);
+            MinZ = coords.Min(c => c.Elevation ?? 0);
+            MaxZ = coords.Max(c => c.Elevation ?? 0);
         }
 
         public BoundingBox(double minLatitude, double maxLatitude, double minLongitude, double maxLongitude)
@@ -155,8 +155,8 @@ namespace Nitro.Geography
             MaxX = Math.Max(MaxX, coord.Latitude);
             MinY = Math.Min(MinY, coord.Longitude);
             MaxY = Math.Max(MaxY, coord.Longitude);
-            MinZ = Math.Min(MinZ, coord.Elevation);
-            MaxZ = Math.Max(MaxZ, coord.Elevation);
+            MinZ = Math.Min(MinZ, coord.Elevation ?? 0);
+            MaxZ = Math.Max(MaxZ, coord.Elevation ?? 0);
         }
 
         public void Add(Vector3 coord)
