@@ -2,7 +2,6 @@ using BitMiracle.LibTiff.Classic;
 using ElevationApi.Dem;
 using Microsoft.AspNetCore.Mvc;
 using Nitro.Geography;
-using System.Reflection;
 
 /// <summary>
 /// Elevation Controller
@@ -18,14 +17,18 @@ public class ElevationController : ControllerBase {
 
     private readonly IElevationModel _elevation;
 
+    private readonly TileCache _cache;
+
     /// <summary>
     /// Creates a new controller instance
     /// </summary>
     /// <param name="logger">Logger instance to use</param>
-    /// <param name="elevation">digital elevation model</param>
-    public ElevationController(ILogger<ElevationController> logger, IElevationModel elevation) {
+    /// <param name="elevation">Elevation model</param>
+    /// <param name="cache">Tile cache instance</param>
+    public ElevationController(ILogger<ElevationController> logger, IElevationModel elevation, TileCache cache) {
         this._logger = logger;
         this._elevation = elevation;
+        this._cache = cache;
     }
 
     /// <summary>
@@ -70,54 +73,16 @@ public class ElevationController : ControllerBase {
             bbox.DeltaLongitude > MAX_AREA_SIZE)
             return badRequest("AREA_TOO_BIG", "The requested area is too big. Maximum size is " + MAX_AREA_SIZE + "x" + MAX_AREA_SIZE);
 
-        var tiff = generateTiff(bbox, resolution);
-        tiff.Flush();
-
-        return Ok(tiff);
-    }
-
-    private Tiff generateTiff(BoundingBox bounds, int resolution) 
-    {
-        using (var output = Tiff.Open("test.tiff", "w"))
-        {
-            output.SetField(TiffTag.IMAGEWIDTH, resolution);
-            output.SetField(TiffTag.IMAGELENGTH, resolution);
-            output.SetField(TiffTag.SAMPLESPERPIXEL, 1);
-            output.SetField(TiffTag.BITSPERSAMPLE, 16);
-            output.SetField(TiffTag.COMPRESSION, Compression.NONE);
-
-            var buffer = new byte[resolution * 2];
-            for (int y=0; y<resolution; y++)
-            {
-                double yScale = (double)y / ((double)resolution - 1.0);
-
-                for (int x=0; x<resolution; x++)
-                {
-                    double xScale = (double)x / ((double)resolution - 1.0);
-                    double latitude = bounds.MaxLatitude - yScale * bounds.DeltaLatitude;
-                    double longitude = bounds.MinLongitude + xScale * bounds.DeltaLongitude;
-
-                    float? elevation = _elevation.GetElevation(latitude, longitude);
-
-                    var shortElevation = (short)Math.Round(elevation ?? 0);
-
-                    buffer[x * 2] = (byte)(shortElevation >> 8);
-                    buffer[x * 2 + 1] = (byte)(shortElevation & 255);
-                }
-
-                output.WriteScanline(buffer, y);
-            }
-
-            return output;
-        }
+        var tiff = _cache.GetTile(bbox, resolution);
+        return File(tiff, "image/tiff");
     }
 
     private BadRequestObjectResult badRequest(string code, string msg)
     {
         return BadRequest(new
         {
-            code = code,
-            msg = msg
+            code,
+            msg
         });
     }
 }

@@ -2,13 +2,22 @@ using ElevationApi.Dem;
 
 // Read configration from environment variables
 var dataFolder = Environment.GetEnvironmentVariable("DEM_DATA") ?? @"C:\Users\hannes\Desktop\aster";
+var cacheFolder = Environment.GetEnvironmentVariable("CACHE_FOLDER") ?? @"C:\temp\tiles";
+
 
 var builder = WebApplication.CreateBuilder(args);
+
+var elevationModel = new AsterElevationModel(dataFolder);
 
 // Add services to the container.
 builder.Services.AddScoped<IElevationModel>((provider) =>
 {
-    return new AsterElevationModel(dataFolder);
+    return elevationModel;
+});
+
+builder.Services.AddScoped<TileCache>((provider) =>
+{
+    return new TileCache(cacheFolder, elevationModel);
 });
 
 builder.Services.AddControllers();
