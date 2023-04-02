@@ -1,0 +1,17 @@
+version: "3"
+
+services:
+    api:
+        container_name: api
+        build: 
+            context: ./dotnet
+            dockerfile: ./Dockerfile
+        image: api:latest
+        ports:
+            - "31415:31415"
+        volumes:
+            - C:\Users\hannes\Desktop\aster:/data/dem
+            - c:\temp\tiles:/data/cache
+        environment:
+            - DEM_DATA=/data/dem
+            - CACHE_FOLDER=/data/cache
