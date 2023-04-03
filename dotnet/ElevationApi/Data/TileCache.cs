@@ -6,7 +6,7 @@ using Nitro.Geography;
 /// Caches generated tiles on disk, so we don't need to re-generate
 /// </summary>
 public class TileCache {
-    private string _cacheFolder;
+    private string? _cacheFolder;
 
     private IElevationModel _elevation;
 
@@ -15,7 +15,7 @@ public class TileCache {
     /// </summary>
     /// <param name="cacheFolder">Folder where to store cached files</param>
     /// <param name="elevation">Elevation model</param>
-    public TileCache(string cacheFolder, IElevationModel elevation)
+    public TileCache(string? cacheFolder, IElevationModel elevation)
     {
         _cacheFolder = cacheFolder;
         _elevation = elevation;
@@ -29,13 +29,18 @@ public class TileCache {
     /// <returns>tiff file</returns>
     public byte[] GetTile(BoundingBox bounds, int resolution)
     {
+        if (_cacheFolder == null)
+        {
+            // Caching is disabled
+            return generateTiff(bounds, resolution);
+        }
+     
         var file = getCacheFilename(bounds, resolution);
         if (File.Exists(file))
             return File.ReadAllBytes(file);
 
         var result = generateTiff(bounds, resolution);
         File.WriteAllBytes(file, result);
-
         return result;
     }
 

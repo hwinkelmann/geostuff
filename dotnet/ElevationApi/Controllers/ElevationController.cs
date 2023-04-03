@@ -1,7 +1,7 @@
-using BitMiracle.LibTiff.Classic;
 using ElevationApi.Dem;
 using Microsoft.AspNetCore.Mvc;
 using Nitro.Geography;
+using NitroGis.Geography.Mapping;
 
 /// <summary>
 /// Elevation Controller
@@ -43,6 +43,28 @@ public class ElevationController : ControllerBase {
     [Produces(typeof(Coordinate))]
     public IActionResult GetAt([FromQuery] double latitude, [FromQuery] double longitude) {
         return Ok(new Coordinate(latitude, longitude, _elevation.GetElevation(latitude, longitude)));
+    }
+
+    /// <summary>
+    /// Returns a tile, identified by it's address
+    /// </summary>
+    /// <param name="x">x</param>
+    /// <param name="y">y</param>
+    /// <param name="z">zoom</param>
+    /// <param name="resolution">resolution of the tile, defaults to 256</param>
+    /// <returns>tiff</returns>
+    [HttpGet]
+    [Route("tile")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult GetTile([FromQuery]int x, [FromQuery]int y, [FromQuery]int z, [FromQuery]int resolution = 256)
+    {
+        var desc = new TileDescriptor(x, y, Math.Max(0, Math.Min(18, z)));
+        if (x < 0 || y < 0 || z < 0 || x >= desc.TilesWidth || y >= desc.TilesWidth)
+            return badRequest("INVALID_TILE_ADDRESS", "Tile address is invalid");
+
+        var bounds = desc.GetBounds();
+        return File(_cache.GetTile(bounds, resolution), "image/tiff");
+
     }
 
     /// <summary>

@@ -8,7 +8,8 @@ services:
             dockerfile: ./Dockerfile
         image: api:latest
         ports:
-            - "31415:31415"
+            - "80:80"
+            - "443:443"
         volumes:
             - C:\Users\hannes\Desktop\aster:/data/dem
             - c:\temp\tiles:/data/cache
