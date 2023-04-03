@@ -3,13 +3,6 @@ using ElevationApi.Dem;
 // Read configration from environment variables
 var dataFolder = Environment.GetEnvironmentVariable("DEM_DATA") ?? @"C:\Users\hannes\Desktop\aster";
 var cacheFolder = Environment.GetEnvironmentVariable("CACHE_FOLDER");
-int port;
-if (!int.TryParse(Environment.GetEnvironmentVariable("PORT") ?? "80", out port))
-    port = 80;
-
-// TODO:
-// - disable caching when no folder is specified
-// - port configuration
 
 var builder = WebApplication.CreateBuilder(args);
 
