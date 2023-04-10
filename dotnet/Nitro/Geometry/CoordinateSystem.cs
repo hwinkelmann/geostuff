@@ -82,7 +82,7 @@
         /// <param name="xAxis">x-Axis</param>
         /// <param name="yAxis">y-Axis</param>
         /// <param name="zAxis">z-Axis</param>
-        public void LocalTransformFromVectors(Vector3 translation, Vector3 xAxis, Vector3 yAxis, Vector3 zAxis)
+        public void LocalTransformFromVectors(DoubleVector3 translation, DoubleVector3 xAxis, DoubleVector3 yAxis, DoubleVector3 zAxis)
         {
             xAxis.Normalize();
             yAxis.Normalize();

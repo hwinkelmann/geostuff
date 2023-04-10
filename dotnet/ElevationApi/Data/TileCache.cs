@@ -1,5 +1,6 @@
 using BitMiracle.LibTiff.Classic;
 using ElevationApi.Dem;
+using ICSharpCode.SharpZipLib.GZip;
 using Nitro.Geography;
 
 /// <summary>
@@ -54,7 +55,7 @@ public class TileCache {
             output.SetField(TiffTag.IMAGELENGTH, resolution);
             output.SetField(TiffTag.SAMPLESPERPIXEL, 1);
             output.SetField(TiffTag.BITSPERSAMPLE, 16);
-            output.SetField(TiffTag.COMPRESSION, Compression.LZW);
+            output.SetField(TiffTag.COMPRESSION, Compression.NONE);
 
             var buffer = new byte[resolution * 2];
             for (int y = 0; y < resolution; y++)
@@ -79,10 +80,14 @@ public class TileCache {
             }
 
             output.Flush();
-            var result = ((MemoryStream)output.Clientdata()).ToArray();
-            output.Close();
 
-            return result;
+            using (var outMs = new MemoryStream())
+            using (var zipStream = new GZipOutputStream(outMs))
+            {
+                zipStream.Write(((MemoryStream)output.Clientdata()).ToArray());
+                zipStream.Flush();
+                return outMs.ToArray();
+            }
         }
     }
     
@@ -95,6 +100,6 @@ public class TileCache {
         Buffer.BlockCopy(BitConverter.GetBytes((float)bounds.MaxLongitude), 0, key, 12, 4);
         Buffer.BlockCopy(BitConverter.GetBytes((ushort)resolution), 0, key, 16, 2);
 
-        return _cacheFolder + Path.DirectorySeparatorChar + Convert.ToBase64String(key) + ".tiff";
+        return _cacheFolder + Path.DirectorySeparatorChar + Convert.ToBase64String(key) + ".tiff.gzip";
     }
 }

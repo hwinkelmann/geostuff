@@ -159,7 +159,7 @@ namespace Nitro.Geography
             MaxZ = Math.Max(MaxZ, coord.Elevation ?? 0);
         }
 
-        public void Add(Vector3 coord)
+        public void Add(DoubleVector3 coord)
         {
             MinX = Math.Min(MinX, coord.X);
             MaxX = Math.Max(MaxX, coord.X);

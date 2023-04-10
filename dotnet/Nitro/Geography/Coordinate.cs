@@ -128,22 +128,22 @@ namespace Nitro.Geography
             return !(a == b);
         }
 
-        public static implicit operator Vector2(Coordinate coord)
+        public static implicit operator DoubleVector2(Coordinate coord)
         {
-            return new Vector2(coord.Latitude, coord.Longitude);
+            return new DoubleVector2(coord.Latitude, coord.Longitude);
         }
 
-        public static implicit operator Vector3(Coordinate coord)
+        public static implicit operator DoubleVector3(Coordinate coord)
         {
-            return new Vector3(coord.Latitude, coord.Longitude, coord.Elevation ?? 0);
+            return new DoubleVector3(coord.Latitude, coord.Longitude, coord.Elevation ?? 0);
         }
 
-        public static implicit operator Coordinate(Vector2 vec)
+        public static implicit operator Coordinate(DoubleVector2 vec)
         {
             return new Coordinate(vec.X, vec.Y);
         }
 
-        public static implicit operator Coordinate(Vector3 vec)
+        public static implicit operator Coordinate(DoubleVector3 vec)
         {
             return new Coordinate(vec.X, vec.Y, (float)vec.Z);
         }

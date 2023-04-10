@@ -4,8 +4,8 @@ namespace Nitro.Geography.Projections
 {
     public interface Projection
     {
-        Vector2 Project(Coordinate coordinate);
+        DoubleVector2 Project(Coordinate coordinate);
 
-        Coordinate Unproject(Vector2 point);
+        Coordinate Unproject(DoubleVector2 point);
     }
 }

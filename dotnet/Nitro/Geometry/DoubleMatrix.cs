@@ -202,12 +202,12 @@
             return res;
         }
 
-        public static Vector3 operator *(DoubleMatrix matrix, Vector3 vector)
+        public static DoubleVector3 operator *(DoubleMatrix matrix, DoubleVector3 vector)
         {
             return matrix.MultiplyMatrixVector(vector);
         }
 
-        public static Vector2 operator *(DoubleMatrix matrix, Vector2 vector)
+        public static DoubleVector2 operator *(DoubleMatrix matrix, DoubleVector2 vector)
         {
             return matrix.MultiplyMatrixVector(vector);
         }
@@ -282,9 +282,9 @@
             }
         }
 
-        public Vector3 MultiplyTransposedVectorMatrix(Vector3 vec)
+        public DoubleVector3 MultiplyTransposedVectorMatrix(DoubleVector3 vec)
         {
-            Vector3 result = new Vector3();
+            DoubleVector3 result = new DoubleVector3();
 
             result.X = M11 * vec.X + M21 * vec.Y + M31 * vec.Z + M41;
             result.Y = M12 * vec.X + M22 * vec.Y + M32 * vec.Z + M42;
@@ -298,9 +298,9 @@
             return result;
         }
 
-        public Vector2 MultiplyTransposedVectorMatrix(Vector2 vec)
+        public DoubleVector2 MultiplyTransposedVectorMatrix(DoubleVector2 vec)
         {
-            Vector2 result = new Vector2();
+            DoubleVector2 result = new DoubleVector2();
 
             result.X = M11 * vec.X + M21 * vec.Y + M41;
             result.Y = M12 * vec.X + M22 * vec.Y + M42;
@@ -312,9 +312,9 @@
             return result;
         }
 
-        public Vector3 MultiplyMatrixVector(Vector3 vec)
+        public DoubleVector3 MultiplyMatrixVector(DoubleVector3 vec)
         {
-            Vector3 result = new Vector3();
+            DoubleVector3 result = new DoubleVector3();
 
             result.X = M11 * vec.X + M12 * vec.Y + M13 * vec.Z + M14;
             result.Y = M21 * vec.X + M22 * vec.Y + M23 * vec.Z + M24;
@@ -328,9 +328,9 @@
             return result;
         }
 
-        public Vector2 MultiplyMatrixVector(Vector2 vec)
+        public DoubleVector2 MultiplyMatrixVector(DoubleVector2 vec)
         {
-            Vector2 result = new Vector2();
+            DoubleVector2 result = new DoubleVector2();
 
             result.X = M11 * vec.X + M12 * vec.Y + M14;
             result.Y = M21 * vec.X + M22 * vec.Y + M24;
@@ -378,7 +378,7 @@
         /// </summary>
         /// <param name="translation"></param>
         /// <returns></returns>
-        public static DoubleMatrix Translation(Vector3 translation)
+        public static DoubleMatrix Translation(DoubleVector3 translation)
         {
             DoubleMatrix result = new DoubleMatrix();
             result.M14 = translation.X;
@@ -490,11 +490,11 @@
         /// <param name="yAxis">Richtung der y-Achse</param>
         /// <param name="zAxis">Richtung der z-Achse</param>
         /// <returns>Transformationsmatrix</returns>
-        public static DoubleMatrix AxisTransform(Vector3 translation, Vector3 xAxis, Vector3 yAxis, Vector3 zAxis)
+        public static DoubleMatrix AxisTransform(DoubleVector3 translation, DoubleVector3 xAxis, DoubleVector3 yAxis, DoubleVector3 zAxis)
         {
-            Vector3 xAxisNormalized = new Vector3(xAxis);
-            Vector3 yAxisNormalized = new Vector3(yAxis);
-            Vector3 zAxisNormalized = new Vector3(zAxis);
+            DoubleVector3 xAxisNormalized = new DoubleVector3(xAxis);
+            DoubleVector3 yAxisNormalized = new DoubleVector3(yAxis);
+            DoubleVector3 zAxisNormalized = new DoubleVector3(zAxis);
 
             xAxisNormalized.Normalize();
             yAxisNormalized.Normalize();
@@ -530,13 +530,13 @@
         /// <param name="a2">Punkt 1 des zweiten Punktpaars</param>
         /// <param name="b2">Punkt 2 des zweiten Punktpaars</param>
         /// <returns>Ergebnis M. Es gilt M * a1 = a2 und M * b1 = b2</returns>
-        public static DoubleMatrix MapPoints2D(Vector2 a1, Vector2 b1, Vector2 a2, Vector2 b2)
+        public static DoubleMatrix MapPoints2D(DoubleVector2 a1, DoubleVector2 b1, DoubleVector2 a2, DoubleVector2 b2)
         {
-            Vector2 a1b1 = b1 - a1;
-            Vector2 a2b2 = b2 - a2;
+            DoubleVector2 a1b1 = b1 - a1;
+            DoubleVector2 a2b2 = b2 - a2;
 
-            DoubleMatrix at = DoubleMatrix.AxisTransform(a1, a1b1, a1b1.Orthographic, new Vector3(0, 0, 1));
-            DoubleMatrix tb = DoubleMatrix.AxisTransform(a2, a2b2, a2b2.Orthographic, new Vector3(0, 0, 1));
+            DoubleMatrix at = DoubleMatrix.AxisTransform(a1, a1b1, a1b1.Orthographic, new DoubleVector3(0, 0, 1));
+            DoubleMatrix tb = DoubleMatrix.AxisTransform(a2, a2b2, a2b2.Orthographic, new DoubleVector3(0, 0, 1));
             tb.Invert();
 
             DoubleMatrix scaling = DoubleMatrix.Scaling(a2.DistanceTo(b2) / a1.DistanceTo(b1));

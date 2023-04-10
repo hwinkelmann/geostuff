@@ -38,15 +38,15 @@ namespace Nitro.Geography.Projections
             metersPerLongitude = ((6378137.0 * Math.PI) / 180) * factor;
         }
 
-        public Vector2 Project(Coordinate coordinate)
+        public DoubleVector2 Project(Coordinate coordinate)
         {
             double deltaLat = referencePoint.Latitude - coordinate.Latitude;
             double deltaLon = coordinate.Longitude - referencePoint.Longitude;
 
-            return new Vector2(deltaLon * metersPerLongitude, deltaLat * metersPerLatitude);
+            return new DoubleVector2(deltaLon * metersPerLongitude, deltaLat * metersPerLatitude);
         }
 
-        public Coordinate Unproject(Vector2 point)
+        public Coordinate Unproject(DoubleVector2 point)
         {
             Coordinate result = new Coordinate();
             result.Latitude = referencePoint.Latitude - point.Y / metersPerLatitude;

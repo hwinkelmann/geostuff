@@ -4,9 +4,9 @@ using ElevationApi.Dem;
 var dataFolder = Environment.GetEnvironmentVariable("DEM_DATA") ?? @"C:\Users\hannes\Desktop\aster";
 var cacheFolder = Environment.GetEnvironmentVariable("CACHE_FOLDER");
 
-var builder = WebApplication.CreateBuilder(args);
-
 var elevationModel = new AsterElevationModel(dataFolder);
+
+var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddScoped<IElevationModel>((provider) =>
@@ -31,8 +31,6 @@ builder.Services.AddSwaggerGen(options => {
     });
 });
 
-builder.Services.AddResponseCompression();
-
 var app = builder.Build();
 
 // app.MapGet("/test", () => new { message = "test" });
@@ -50,7 +48,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 app.UseAuthorization();
 

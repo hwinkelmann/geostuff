@@ -63,6 +63,8 @@ public class ElevationController : ControllerBase {
             return badRequest("INVALID_TILE_ADDRESS", "Tile address is invalid");
 
         var bounds = desc.GetBounds();
+        Response.Headers.Add("Content-Encoding", "gzip");
+
         return File(_cache.GetTile(bounds, resolution), "image/tiff");
 
     }
@@ -96,6 +98,8 @@ public class ElevationController : ControllerBase {
             return badRequest("AREA_TOO_BIG", "The requested area is too big. Maximum size is " + MAX_AREA_SIZE + "x" + MAX_AREA_SIZE);
 
         var tiff = _cache.GetTile(bbox, resolution);
+        Response.Headers.Add("Content-Encoding", "gzip");
+
         return File(tiff, "image/tiff");
     }
 

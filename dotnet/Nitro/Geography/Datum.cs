@@ -29,14 +29,14 @@ namespace Nitro.Geography
             e_ = Math.Sqrt((a * a - b * b) / (b * b));
         }
 
-        public Vector3 ToCarthesian(Coordinate coordinate)
+        public DoubleVector3 ToCarthesian(Coordinate coordinate)
         {
             double radLat = (Math.PI / 180) * coordinate.Latitude;
             double radLon = (Math.PI / 180) * coordinate.Longitude;
 
             double N = radiusOfCurvature(coordinate.Latitude);
 
-            Vector3 Result = new Vector3();
+            DoubleVector3 Result = new DoubleVector3();
             Result.X = ((N + coordinate.Elevation ?? 0) * Math.Cos(radLat) * Math.Cos(radLon) + xShift);
             Result.Y = ((N + coordinate.Elevation ?? 0) * Math.Cos(radLat) * Math.Sin(radLon) + yShift);
             Result.Z = (((b * b * N) / (a * a)) * Math.Sin(radLat) + zShift);
@@ -46,11 +46,11 @@ namespace Nitro.Geography
 
         public double Distance(Coordinate from, Coordinate to)
         {
-            Vector3 diff = ToCarthesian(from) - ToCarthesian(to);
+            DoubleVector3 diff = ToCarthesian(from) - ToCarthesian(to);
             return diff.Length();
         }
 
-        public Coordinate FromCarthesian(Vector3 position)
+        public Coordinate FromCarthesian(DoubleVector3 position)
         {
             Coordinate coord = new Coordinate();
 

@@ -5,19 +5,19 @@
         /// <summary>
         /// A point on the plane
         /// </summary>
-        public Vector3 Point;
+        public DoubleVector3 Point;
 
         /// <summary>
         /// Normal vector of the plane
         /// </summary>
-        public Vector3 Normal;
+        public DoubleVector3 Normal;
 
         /// <summary>
         /// Creates an instance using a point on the plane and the normal vector
         /// </summary>
         /// <param name="point">Arbitrary point on the plane</param>
         /// <param name="normal">Normal vector</param>
-        public Plane(Vector3 point, Vector3 normal)
+        public Plane(DoubleVector3 point, DoubleVector3 normal)
         {
             this.Normal = normal;
             normal.Normalize();
@@ -31,11 +31,11 @@
         /// <param name="p1">A point on the plane</param>
         /// <param name="p2">A point on the plane</param>
         /// <param name="p3">A point on the plane</param>
-        public Plane(Vector3 p1, Vector3 p2, Vector3 p3)
+        public Plane(DoubleVector3 p1, DoubleVector3 p2, DoubleVector3 p3)
         {
-            Vector3 p12 = p2 - p1;
-            Vector3 p13 = p3 - p1;
-            Vector3 normal = p12.Cross(p13);
+            DoubleVector3 p12 = p2 - p1;
+            DoubleVector3 p13 = p3 - p1;
+            DoubleVector3 normal = p12.Cross(p13);
             normal.Normalize();
             
             Normal = normal;
@@ -58,7 +58,7 @@
         /// <param name="ray">Ray</param>
         /// <returns>Intersection point or null if ray is parallel to the plane
         /// </returns>
-        public Vector3? Intersect(Ray ray)
+        public DoubleVector3? Intersect(Ray ray)
         {
             return ray.Intersect(this);
         }
@@ -89,9 +89,9 @@
             return result;
         }
 
-        public double DistanceTo(Vector3 point)
+        public double DistanceTo(DoubleVector3 point)
         {
-            Vector3 v = point - Point;
+            DoubleVector3 v = point - Point;
             return Math.Abs(v.Dot(Normal));
         }
     }
