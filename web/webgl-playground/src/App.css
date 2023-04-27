@@ -1,0 +1,14 @@
+#root {
+    position: absolute;
+    inset: 0;
+}
+
+#root>div {
+    position: absolute;
+    inset: 0;
+}
+
+#root>div>canvas {
+    position: absolute;
+    inset: 0;
+}
