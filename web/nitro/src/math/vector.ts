@@ -1,4 +1,6 @@
-export type Vector = [number, number, number];
+import { Matrix } from "./matrix";
+
+export type Vector = [number, number, number, number?];
 
 export namespace vec {
     export function clone(vector: Vector): Vector {
@@ -52,7 +54,6 @@ export namespace vec {
 
     /**
      * Returns a the normalized vector
-     * @param vector 
      * @returns Normalized vector or (0, 0, 0) if length was 0
      */
     export function normalize(vector: Vector): Vector {
@@ -66,6 +67,7 @@ export namespace vec {
     export function toString(vector: Vector) {
         return `${vector[0]}, ${vector[1]}, ${vector[2]}`;
     }
+
 
     export function createVector(x: number, y: number, z: number): Vector {
         return [x, y, z];
@@ -83,5 +85,15 @@ export namespace vec {
             return Number.NaN;
 
         return Math.acos(dot / mag);
+    }
+
+    export function matrixMultiply(v: Vector, m: Matrix): Vector {
+        const v3 = v[3] ?? 1;
+        return [
+            m[0][0] * v[0] + m[0][1] * v[1] + m[0][2] * v[2] + m[0][3] * v3,
+            m[1][0] * v[0] + m[1][1] * v[1] + m[1][2] * v[2] + m[1][3] * v3,
+            m[2][0] * v[0] + m[2][1] * v[1] + m[2][2] * v[2] + m[2][3] * v3,
+            m[3][0] * v[0] + m[3][1] * v[1] + m[3][2] * v[2] + m[3][3] * v3,
+        ];
     }
 }

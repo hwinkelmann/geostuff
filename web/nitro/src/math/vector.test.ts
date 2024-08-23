@@ -1,3 +1,4 @@
+import { Matrix } from './matrix';
 import { vec, Vector } from './vector';
 
 describe('Vector', () => {
@@ -90,6 +91,20 @@ describe('Vector', () => {
         it('should calculate the angle between two vectors in radians', () => {
             const angle = vec.getAngleBetween(vectorA, vectorB);
             expect(angle).toBeCloseTo(0.2523447284, 4);
+        });
+    });
+
+    describe('matrixMultiply', () => {
+        it('should multiply the vector by the matrix', () => {
+            const vector: Vector = [1, 2, 3];
+            const matrix: Matrix = [
+                [2, 0, 0, 0],
+                [0, 3, 0, 0],
+                [0, 0, 4, 0],
+                [0, 0, 0, 1],
+            ];
+            const result = vec.matrixMultiply(vector, matrix);
+        expect(result).toEqual([2, 6, 12, 1]);
         });
     });
 });
