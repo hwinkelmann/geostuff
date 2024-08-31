@@ -1,6 +1,8 @@
-function App() {
+import { WebMap } from "./WebMap";
+import "./App.css";
 
-  return <div>hello from react</div>
+function App() {
+  return <div className="app"><WebMap /></div>;
 }
 
 export default App
