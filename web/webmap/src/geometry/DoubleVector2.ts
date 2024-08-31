@@ -1,3 +1,5 @@
+import { DoubleVector3 } from "./DoubleVector3";
+
 export class DoubleVector2 {
     constructor(public x: number = 0, public y: number = 0) {
     }
@@ -14,7 +16,7 @@ export class DoubleVector2 {
         return this.x * vec.x + this.y * vec.y;
     }
 
-    public get Orthographic(): DoubleVector2 {
+    public getOrthographic(): DoubleVector2 {
         return new DoubleVector2(-this.y, this.x);
     }
 
@@ -99,7 +101,11 @@ export class DoubleVector2 {
         return this;
     }
 
-    private subtract(a: DoubleVector2): DoubleVector2 {
+    public subtract(a: DoubleVector2): DoubleVector2 {
         return new DoubleVector2(this.x - a.x, this.y - a.y);
+    }
+
+    public toDoubleVector3(): DoubleVector3 {
+        return new DoubleVector3(this.x, this.y, 0);
     }
 }
