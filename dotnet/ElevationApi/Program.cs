@@ -1,7 +1,7 @@
 using ElevationApi.Dem;
 
 // Read configration from environment variables
-var dataFolder = Environment.GetEnvironmentVariable("DEM_DATA") ?? @"C:\Users\hannes\Desktop\aster";
+var dataFolder = Environment.GetEnvironmentVariable("DEM_DATA") ?? @"C:\data\geo\ASTER";
 var cacheFolder = Environment.GetEnvironmentVariable("CACHE_FOLDER");
 
 var elevationModel = new AsterElevationModel(dataFolder);

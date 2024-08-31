@@ -63,7 +63,7 @@ public class ElevationController : ControllerBase {
             return badRequest("INVALID_TILE_ADDRESS", "Tile address is invalid");
 
         var bounds = desc.GetBounds();
-        Response.Headers.Add("Content-Encoding", "gzip");
+        Response.Headers.Append("Content-Encoding", "gzip");
 
         return File(_cache.GetTile(bounds, resolution), "image/tiff");
 
