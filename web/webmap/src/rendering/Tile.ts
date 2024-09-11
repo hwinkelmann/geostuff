@@ -1,6 +1,7 @@
 import { BoundingBox } from "../geography/BoundingBox";
 import { Coordinate } from "../geography/Coordinate";
 import { Datum } from "../geography/Datum";
+import { DoubleMatrix } from "../geometry/DoubleMatrix";
 import { DoubleVector2 } from "../geometry/DoubleVector2";
 import { DoubleVector3 } from "../geometry/DoubleVector3";
 import { TileDescriptor } from "../models/TileDescriptor";
@@ -17,7 +18,10 @@ export class Tile {
     public vertexBuffer: WebGLBuffer | null;
     public textureBuffer: WebGLBuffer | null;
 
-    public center: DoubleVector3;
+    public boundingSphere: {
+        center: DoubleVector3,
+        radius: number,
+    };
 
     /**
      * 
@@ -33,7 +37,11 @@ export class Tile {
 
         // Create vertex buffer
         this.indexBuffer = Tile.buildIndexBuffer(gl);
-        this.vertexBuffer = Tile.buildVertexBuffer(gl, this.bounds, mapDescriptor, textureDescriptor);
+
+        const vb = Tile.buildVertexBuffer(gl, this.bounds);
+        this.vertexBuffer = vb.vertexBuffer;
+        this.boundingSphere = vb.boundingSphere;
+
         this.textureBuffer = Tile.buildTextureBuffer(gl, mapDescriptor, textureDescriptor);
 
 
@@ -42,16 +50,38 @@ export class Tile {
 
     public dispose() {
         const gl = this.context.gl;
-        gl.deleteBuffer(this.indexBuffer);
-        gl.deleteBuffer(this.vertexBuffer);
+        if (this.indexBuffer) {
+            gl.deleteBuffer(this.indexBuffer);
+            this.indexBuffer = null;
+        }
+
+        if (this.vertexBuffer) {
+            gl.deleteBuffer(this.vertexBuffer);
+            this.vertexBuffer = null;
+        }
+
+        if (this.textureBuffer) {
+            gl.deleteBuffer(this.textureBuffer);
+            this.textureBuffer = null;
+        }
     }
 
     public toString(): string {
         return `Tile ${this.mapDescriptor.x},${this.mapDescriptor.y},${this.mapDescriptor.zoom}:\n   Origin: ${this.origin.x}, ${this.origin.y}, ${this.origin.z}\n   Bounds: ${this.bounds.minCoordinate.toString()} - ${this.bounds.maxCoordinate.toString()}`;
     }
 
-    public render() {
+    /**
+     * Renders the tile
+     * @param cameraPosition Carthesian camera position in world space
+     */
+    public render(context: RenderContext, cameraPosition: DoubleVector3) {
+        // Tile center is the origin. We need to translate the tile into camera space without
+        // going through world space. The big numbers involved in world space would blow up
+        // single precision floating point precision.
+        const delta = this.boundingSphere.center.subtract(cameraPosition);
+        const objectToCamera = DoubleMatrix.getTranslationMatrix(delta.x, delta.y, delta.z);
 
+        // TODO: Actually render that tile
     }
 
     private static buildTextureBuffer(gl: WebGL2RenderingContext, mapDescriptor: TileDescriptor, textureDescriptor: TileDescriptor) {
@@ -79,7 +109,7 @@ export class Tile {
         return textureBuffer;
     }
 
-    private static buildVertexBuffer(gl: WebGL2RenderingContext, bounds: BoundingBox, mapDescriptor: TileDescriptor, textureDescriptor: TileDescriptor) {
+    private static buildVertexBuffer(gl: WebGL2RenderingContext, bounds: BoundingBox) {
         const vertices: DoubleVector3[] = [];
 
         for (let y = -1; y <= tesselationSteps; y++) {
