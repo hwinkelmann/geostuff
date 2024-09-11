@@ -29,6 +29,14 @@ export class BoundingBox {
         );
     }
 
+    public get minCoordinate(): Coordinate {
+        return new Coordinate(this.minX, this.minY, this.minZ);
+    }
+
+    public get maxCoordinate(): Coordinate {
+        return new Coordinate(this.maxX, this.maxY, this.maxZ);
+    }
+
     public get minLatitude(): number {
         return this.minX;
     }

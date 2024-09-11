@@ -28,6 +28,12 @@ export class DoubleVector3 {
         );
     }
 
+    public distanceToSq(vector: DoubleVector3): number {
+        return (this.x - vector.x) * (this.x - vector.x) +
+            (this.y - vector.y) * (this.y - vector.y) +
+            (this.z - vector.z) * (this.z - vector.z);
+    }
+
     public cross(c: DoubleVector3): DoubleVector3 {
         const x = this.y * c.z - this.z * c.y;
         const y = this.z * c.x - this.x * c.z;

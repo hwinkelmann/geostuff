@@ -58,7 +58,7 @@ export class TileDescriptor {
         }
     }
 
-    public GetBounds(): BoundingBox {
+    public getBounds(): BoundingBox {
         return BoundingBox.fromCoordinates([
             TileDescriptor.projection.fromDescriptorCoordinate(this.x, this.y, this.zoom),
             TileDescriptor.projection.fromDescriptorCoordinate(this.x + 1, this.y + 1, this.zoom),
