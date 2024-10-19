@@ -167,7 +167,11 @@ export class DoubleMatrix {
     }
 
     constructor() {
-        this.data = DoubleMatrix.Identity.data.map((row) => [...row]);
+        this.data = new Array(4).fill(0).map(() => new Array(4).fill(0));
+    }
+
+    public multiply(matrix: DoubleMatrix): DoubleMatrix {
+        return DoubleMatrix.multiply(this, matrix);
     }
 
     public equals(obj: any): boolean {
@@ -339,38 +343,54 @@ export class DoubleMatrix {
         return result;
     }
 
-    public static getRotationMatrixX(rad: number): DoubleMatrix {
+
+    /**
+     * Returns a right-handed rotation around the x-axis
+     * @param rad Rotation in radians
+     * @returns Right-handed rotation matrix around the x-axis
+     */
+    public static getRotationMatrixXRH(rad: number): DoubleMatrix {
         const result = new DoubleMatrix();
 
         result.M11 = 1;
         result.M22 = Math.cos(rad);
-        result.M23 = Math.sin(rad);
-        result.M32 = -Math.sin(rad);
+        result.M23 = -Math.sin(rad);
+        result.M32 = Math.sin(rad);
         result.M33 = Math.cos(rad);
         result.M44 = 1;
 
         return result;
     }
 
-    public static getRotationMatrixY(rad: number): DoubleMatrix {
+    /**
+     * Returns a right-handed rotation around the y-axis
+     * @param rad Rotation in radians
+     * @returns Right-handed rotation matrix around the y-axis
+     */
+    public static getRotationMatrixYRH(rad: number): DoubleMatrix {
         const result = new DoubleMatrix();
 
         result.M11 = Math.cos(rad);
-        result.M13 = -Math.sin(rad);
+        result.M13 = Math.sin(rad);
         result.M22 = 1;
-        result.M31 = Math.sin(rad);
+        result.M31 = -Math.sin(rad);
         result.M33 = Math.cos(rad);
         result.M44 = 1;
 
         return result;
     }
 
-    public static getRotationMatrixZ(rad: number): DoubleMatrix {
+    /**
+     * Returns a right-handed rotation around the z-axis
+     * @param rad Rotation in radians
+     * @returns Right-handed rotation matrix around the z-axis
+     */
+    public static getRotationMatrixZRH(rad: number): DoubleMatrix {
         const result = new DoubleMatrix();
 
         result.M11 = Math.cos(rad);
-        result.M12 = Math.sin(rad);
-        result.M21 = -Math.sin(rad);
+        result.M12 = -Math.sin(rad);
+        result.M21 = Math.sin(rad);
         result.M22 = Math.cos(rad);
         result.M33 = 1;
         result.M44 = 1;
@@ -384,6 +404,77 @@ export class DoubleMatrix {
         result.M22 = factorY ?? factorX;
         result.M33 = factorZ ?? factorX;
         result.M44 = 1;
+
+        return result;
+    }
+
+    /**
+     * Generates a right-handed look-at matrix
+     * @param eye Eye position
+     * @param wLook Look at position
+     * @param wUp Up vector
+     * @returns Look-at matrix
+     */
+    public static getLookAtMatrixRH(eye: DoubleVector3, wLook: DoubleVector3, wUp: DoubleVector3): DoubleMatrix {
+        // See http://perry.cz/articles/ProjectionMatrix.xhtml
+        const look = eye.subtract(wLook);
+        look.normalize();
+
+        const right = wUp.cross(look);
+        right.normalize();
+
+        const up = look.cross(right);
+        up.normalize();
+
+        const result = new DoubleMatrix();
+        result.M11 = right.x;
+        result.M12 = right.y;
+        result.M13 = right.z;
+
+        result.M21 = up.x;
+        result.M22 = up.y;
+        result.M23 = up.z;
+
+        result.M31 = look.x;
+        result.M32 = look.y;
+        result.M33 = look.z;
+
+        result.M14 = right.dot(eye);
+        result.M24 = up.dot(eye);
+        result.M34 = -look.dot(eye);
+        result.M44 = 1;
+
+        return result;
+    }
+
+    /**
+     * Creates a right-handed projection matrix.
+     * @param fov Field of view in degrees
+     * @param aspect Aspect ratio
+     * @param near Near plane
+     * @param far Far plane
+     * @returns Projection matrix
+     * @see https://www.tutorialspoint.com/webgl/webgl_cube_rotation.htm
+     */
+    public static getProjectionMatrixRH(fov: number, aspect: number, near: number, far: number): DoubleMatrix {
+        var ang = Math.tan((fov * .5) * Math.PI / 180);//angle*.5
+
+        return DoubleMatrix.fromValues(
+            0.5 / ang, 0, 0, 0,
+            0, 0.5 * aspect / ang, 0, 0,
+            0, 0, -(far + near) / (far - near), -1,
+            0, 0, (-2 * far * near) / (far - near), 0
+        );
+    }
+
+    public toFloat32Array(): Float32Array {
+        const result = new Float32Array(16);
+        let index = 0;
+        for (let i = 0; i < 4; i++) {
+            for (let j = 0; j < 4; j++) {
+                result[index++] = this.data[j][i];
+            }
+        }
 
         return result;
     }

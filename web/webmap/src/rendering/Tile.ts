@@ -18,6 +18,8 @@ export class Tile {
     public vertexBuffer: WebGLBuffer | null;
     public textureBuffer: WebGLBuffer | null;
 
+    public texture: WebGLTexture | null = null;
+
     public boundingSphere: {
         center: DoubleVector3,
         radius: number,
