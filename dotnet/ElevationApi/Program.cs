@@ -3,6 +3,7 @@ using ElevationApi.Dem;
 // Read configration from environment variables
 var dataFolder = Environment.GetEnvironmentVariable("DEM_DATA") ?? @"C:\data\geo\ASTER";
 var cacheFolder = Environment.GetEnvironmentVariable("CACHE_FOLDER");
+var port = int.Parse(Environment.GetEnvironmentVariable("PORT") ?? "3001");
 
 var elevationModel = new AsterElevationModel(dataFolder);
 
@@ -31,9 +32,14 @@ builder.Services.AddSwaggerGen(options => {
     });
 });
 
-var app = builder.Build();
+// Configure Kestrel to listen on a specific port
+builder.WebHost.UseKestrel(options =>
+{
+    options.ListenAnyIP(port);
+});
 
-// app.MapGet("/test", () => new { message = "test" });
+var app = builder.Build();
+app.UsePathBase("/api");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -43,8 +49,8 @@ if (app.Environment.IsDevelopment())
     });
 
     app.UseSwaggerUI(options => {
-        options.RoutePrefix = String.Empty;
-        options.SwaggerEndpoint("/docs/v1/openapi.json", "My API V1");
+        options.RoutePrefix = "docs";
+        options.SwaggerEndpoint("/api/docs/v1/openapi.json", "My API V1");
     });
 }
 
