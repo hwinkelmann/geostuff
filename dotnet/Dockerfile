@@ -1,15 +1,21 @@
-FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build-env
-WORKDIR /App
+# Use the official .NET SDK image as the build environment
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build-env
+WORKDIR /app
 
-# Copy everything
-COPY . ./
-# Restore as distinct layers
-RUN dotnet restore
-# Build and publish a release
-RUN dotnet publish -c Release -o out ElevationApi
+# Copy the CSPROJ files and restore dependencies
+COPY ElevationApi/*.csproj ./ElevationApi/
+COPY Nitro/*.csproj ./Nitro/
+RUN dotnet restore ./ElevationApi/ElevationApi.csproj
 
-# Build runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:7.0
-WORKDIR /App
-COPY --from=build-env /App/out .
-ENTRYPOINT ["dotnet", "ElevationApi.dll"]
+# Copy the rest of the code and build the application
+COPY ElevationApi/ ./ElevationApi/
+COPY Nitro/ ./Nitro/
+RUN dotnet publish ./ElevationApi/ElevationApi.csproj -c Release -o out
+
+# Use the official .NET Runtime image as the runtime environment
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY --from=build-env /app/out .
+
+# Start the application
+ENTRYPOINT ["./ElevationApi"]
