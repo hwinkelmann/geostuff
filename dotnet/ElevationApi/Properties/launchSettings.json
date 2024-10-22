@@ -15,8 +15,7 @@
       "launchBrowser": true,
       "launchUrl": "index.html",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "CACHE_FOLDER": "c:\\temp\\tiles"
+        "ASPNETCORE_ENVIRONMENT": "Development"
       },
       "dotnetRunMessages": true,
       "applicationUrl": "https://localhost:443;http://localhost:80"

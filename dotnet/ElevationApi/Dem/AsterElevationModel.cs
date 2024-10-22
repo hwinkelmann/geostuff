@@ -30,20 +30,20 @@ namespace ElevationApi.Dem
 
             for (int x = -180; x < 180; x++)
                 for (int y = 90; y > -90; y--)
-                    dataExists[x + 180, y + 90] = File.Exists(getTileFilename(y, x));
+                    dataExists[x + 180, y + 90] = File.Exists(GetTileFilename(y, x));
         }
 
         /// <inheritdoc/>
-        public float GetElevation(double latitude, double longitude)
+        public async Task<float> GetElevation(double latitude, double longitude)
         {
-            latitude = clampLatitude(latitude);
-            longitude = clampLongitude(longitude);
+            latitude = ClampLatitude(latitude);
+            longitude = ClampLongitude(longitude);
 
             // Load aster tile
             var iLat = (int)Math.Floor(latitude);
             var iLon = (int)Math.Floor(longitude);
 
-            var tile = getDEM(iLat, iLon);
+            var tile = await GetDemAsync(iLat, iLon);
 
             // If no tile is available, we're querying a coordinate in the sea. That's
             // 0 meters above sea level.
@@ -82,12 +82,12 @@ namespace ElevationApi.Dem
         /// <param name="latitude">Latitude</param>
         /// <param name="longitude">Longitude</param>
         /// <returns>The requested aster tile</returns>
-        private short[,]? getDEM(int latitude, int longitude)
+        private async Task<short[,]?> GetDemAsync(int latitude, int longitude)
         {
             if (!dataExists[longitude + 180, latitude + 90])
                 return null;
 
-            var key = getCacheKey(latitude, longitude);
+            var key = GetCacheKey(latitude, longitude);
 
             short[,]? data;
             lock (cache)
@@ -97,7 +97,7 @@ namespace ElevationApi.Dem
                     return data;
             }
 
-            data = loadAsterTile(latitude, longitude);
+            data = await LoadAsterTileAsync(latitude, longitude);
             if (data == null)
             {
                 // this should never happen unless you delete data files
@@ -118,46 +118,46 @@ namespace ElevationApi.Dem
         /// <param name="latitude">Latitude</param>
         /// <param name="longitude">Longitude</param>
         /// <returns>The requested aster tile</returns>
-        private short[,]? loadAsterTile(int latitude, int longitude)
+        private async Task<short[,]?> LoadAsterTileAsync(int latitude, int longitude)
         {
-            var filename = getTileFilename(latitude, longitude);
+            var filename = GetTileFilename(latitude, longitude);
             if (!File.Exists(filename))
                 return null;
 
-            var zipStream = new ZipInputStream(File.OpenRead(filename));
-            ZipEntry? zipEntry = null;
+            using (var zipStream = new ZipInputStream(File.OpenRead(filename)))
+            {
+                ZipEntry? zipEntry = null;
 
-            while (zipEntry == null || !zipEntry.Name.EndsWith("dem.tif"))
-                zipEntry = zipStream.GetNextEntry();
+                while (zipEntry == null || !zipEntry.Name.EndsWith("dem.tif"))
+                    zipEntry = zipStream.GetNextEntry();
 
-            // unzip
-            byte[] buffer = new byte[zipEntry.Size];
-            zipStream.Read(buffer, 0, 8);
-            zipStream.Read(buffer, 0, (int)zipEntry.Size);
+                // unzip
+                byte[] buffer = new byte[zipEntry.Size];
+                await zipStream.ReadAsync(buffer, 0, 8);
+                await zipStream.ReadAsync(buffer, 0, (int)zipEntry.Size);
 
-            // adjust endianess (aster files are big endian)
-            if (!BitConverter.IsLittleEndian)
-                for (int i = 0; i < buffer.Length; i += 2)
-                {
-                    byte dummy = buffer[i];
-                    buffer[i] = buffer[i + 1];
-                    buffer[i + 1] = dummy;
-                }
+                // adjust endianess (aster files are big endian)
+                if (!BitConverter.IsLittleEndian)
+                    for (int i = 0; i < buffer.Length; i += 2)
+                    {
+                        byte dummy = buffer[i];
+                        buffer[i] = buffer[i + 1];
+                        buffer[i + 1] = dummy;
+                    }
 
-            // read data
-            int pos = 0;
-            int size = 3601;
-            var data = new short[size, size];
-            for (int y = 0; y < size; y++)
-                for (int x = 0; x < size; x++, pos += 2)
-                    data[x, y] = BitConverter.ToInt16(buffer, pos);
+                // read data
+                int pos = 0;
+                int size = 3601;
+                var data = new short[size, size];
+                for (int y = 0; y < size; y++)
+                    for (int x = 0; x < size; x++, pos += 2)
+                        data[x, y] = BitConverter.ToInt16(buffer, pos);
 
-            zipStream.Dispose();
-
-            return data;
+                return data;
+            }
         }
 
-        private string getTileFilename(int latitude, int longitude)
+        private string GetTileFilename(int latitude, int longitude)
         {
             var NS = (latitude < 0) ? "S" : "N";
             var EW = (longitude < 0) ? "W" : "E";
@@ -168,7 +168,7 @@ namespace ElevationApi.Dem
             return dataDirectory + Path.DirectorySeparatorChar + "ASTGTM_" + latHeading + lonHeading + ".zip";
         }
 
-        private static double clampLatitude(double latitude)
+        private static double ClampLatitude(double latitude)
         {
             // Handle over- and underflow
             while (latitude < -180)
@@ -180,7 +180,7 @@ namespace ElevationApi.Dem
             return latitude;
         }
 
-        private static double clampLongitude(double longitude)
+        private static double ClampLongitude(double longitude)
         {
             while (longitude < -180)
                 longitude += 360;
@@ -191,7 +191,7 @@ namespace ElevationApi.Dem
             return longitude;
         }
 
-        private static int getCacheKey(int latitude, int longitude)
+        private static int GetCacheKey(int latitude, int longitude)
         {
             return ((latitude + 90) << 10) + (longitude + 180);
         }

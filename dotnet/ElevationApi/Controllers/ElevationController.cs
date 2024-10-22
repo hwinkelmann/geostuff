@@ -41,8 +41,8 @@ public class ElevationController : ControllerBase {
     [Route("at")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [Produces(typeof(Coordinate))]
-    public IActionResult GetAt([FromQuery] double latitude, [FromQuery] double longitude) {
-        return Ok(new Coordinate(latitude, longitude, _elevation.GetElevation(latitude, longitude)));
+    public async Task<IActionResult> GetAt([FromQuery] double latitude, [FromQuery] double longitude) {
+        return Ok(new Coordinate(latitude, longitude, await _elevation.GetElevation(latitude, longitude)));
     }
 
     /// <summary>
@@ -56,7 +56,7 @@ public class ElevationController : ControllerBase {
     [HttpGet]
     [Route("tile")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public IActionResult GetTile([FromQuery]int x, [FromQuery]int y, [FromQuery]int z, [FromQuery]int resolution = 256)
+    public async Task<IActionResult> GetTile([FromQuery]int x, [FromQuery]int y, [FromQuery]int z, [FromQuery]int resolution = 256)
     {
         var desc = new TileDescriptor(x, y, Math.Max(0, Math.Min(18, z)));
         if (x < 0 || y < 0 || z < 0 || x >= desc.TilesWidth || y >= desc.TilesWidth)
@@ -65,7 +65,7 @@ public class ElevationController : ControllerBase {
         var bounds = desc.GetBounds();
         Response.Headers.Append("Content-Encoding", "gzip");
 
-        return File(_cache.GetTile(bounds, resolution), "image/tiff");
+        return File(await _cache.GetTile(bounds, resolution), "application/gzip");
 
     }
 
@@ -76,12 +76,12 @@ public class ElevationController : ControllerBase {
     /// <param name="_maxLatitude">Latitude 2</param>
     /// <param name="_minLongitude">Longitude 1</param>
     /// <param name="_maxLongitude">Longitude 2</param>
-    /// <param name="_resolution">Resolution of the generated geo tiff image</param>
-    /// <returns>geotiff image</returns>
+    /// <param name="_resolution">Resolution of the generated tile</param>
+    /// <returns>array of shorts</returns>
     [HttpGet]
     [Route("area")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public IActionResult GetArea([FromQuery(Name = "minLatitude")] double _minLatitude, [FromQuery(Name = "maxLatitude")] double _maxLatitude, [FromQuery(Name = "minLongitude")] double _minLongitude, [FromQuery(Name = "maxLongitude")] double _maxLongitude, [FromQuery(Name = "resolution")] int _resolution = 256)
+    public async Task<IActionResult> GetArea([FromQuery(Name = "minLatitude")] double _minLatitude, [FromQuery(Name = "maxLatitude")] double _maxLatitude, [FromQuery(Name = "minLongitude")] double _minLongitude, [FromQuery(Name = "maxLongitude")] double _maxLongitude, [FromQuery(Name = "resolution")] int _resolution = 256)
     {
         // Parameter parsing and range check
         var resolution = Math.Max(16, Math.Min(512, _resolution));
@@ -97,10 +97,10 @@ public class ElevationController : ControllerBase {
             bbox.DeltaLongitude > MAX_AREA_SIZE)
             return badRequest("AREA_TOO_BIG", "The requested area is too big. Maximum size is " + MAX_AREA_SIZE + "x" + MAX_AREA_SIZE);
 
-        var tiff = _cache.GetTile(bbox, resolution);
-        Response.Headers.Add("Content-Encoding", "gzip");
+        var data = await _cache.GetTile(bbox, resolution);
+        Response.Headers.Append("Content-Encoding", "gzip");
 
-        return File(tiff, "image/tiff");
+        return File(data, "application/zip");
     }
 
     private BadRequestObjectResult badRequest(string code, string msg)

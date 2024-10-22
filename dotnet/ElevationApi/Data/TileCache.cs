@@ -1,4 +1,3 @@
-using BitMiracle.LibTiff.Classic;
 using ElevationApi.Dem;
 using ICSharpCode.SharpZipLib.GZip;
 using Nitro.Geography;
@@ -27,71 +26,56 @@ public class TileCache {
     /// </summary>
     /// <param name="bounds">Tile bounds</param>
     /// <param name="resolution">Tile resolution</param>
-    /// <returns>tiff file</returns>
-    public byte[] GetTile(BoundingBox bounds, int resolution)
+    /// <returns>elevation data</returns>
+    public async Task<byte[]> GetTile(BoundingBox bounds, int resolution)
     {
         if (_cacheFolder == null)
         {
             // Caching is disabled
-            return generateTiff(bounds, resolution);
+            return await GenerateBinaryTile(bounds, resolution);
         }
      
-        var file = getCacheFilename(bounds, resolution);
+        var file = GetCacheFilename(bounds, resolution);
         if (File.Exists(file))
-            return File.ReadAllBytes(file);
+            return await File.ReadAllBytesAsync(file);
 
-        var result = generateTiff(bounds, resolution);
-        File.WriteAllBytes(file, result);
+        var result = await GenerateBinaryTile(bounds, resolution);
+        await File.WriteAllBytesAsync(file, result);
         return result;
     }
 
-    private byte[] generateTiff(BoundingBox bounds, int resolution)
+    private async Task<byte[]> GenerateBinaryTile(BoundingBox bounds, int resolution)
     {
-        var tiffStream = new TiffStream();
-        using (var ms = new MemoryStream())
-        using (var output = Tiff.ClientOpen("", "w", ms, tiffStream))
+        using (var outMs = new MemoryStream())
         {
-            output.SetField(TiffTag.IMAGEWIDTH, resolution);
-            output.SetField(TiffTag.IMAGELENGTH, resolution);
-            output.SetField(TiffTag.SAMPLESPERPIXEL, 1);
-            output.SetField(TiffTag.BITSPERSAMPLE, 16);
-            output.SetField(TiffTag.COMPRESSION, Compression.NONE);
-
-            var buffer = new byte[resolution * 2];
-            for (int y = 0; y < resolution; y++)
+            using (var zipStream = new GZipOutputStream(outMs))
+            using (var writer = new BinaryWriter(zipStream))
             {
-                double yScale = y / (resolution - 1.0);
-
-                for (int x = 0; x < resolution; x++)
+                for (int y = 0; y < resolution; y++)
                 {
-                    double xScale = x / (resolution - 1.0);
-                    double latitude = bounds.MaxLatitude - yScale * bounds.DeltaLatitude;
-                    double longitude = bounds.MinLongitude + xScale * bounds.DeltaLongitude;
+                    double yScale = y / (resolution - 1.0);
 
-                    float? elevation = _elevation.GetElevation(latitude, longitude);
+                    for (int x = 0; x < resolution; x++)
+                    {
+                        double xScale = x / (resolution - 1.0);
+                        double latitude = bounds.MaxLatitude - yScale * bounds.DeltaLatitude;
+                        double longitude = bounds.MinLongitude + xScale * bounds.DeltaLongitude;
 
-                    var shortElevation = (short)Math.Round(elevation ?? 0);
+                        float? elevation = await _elevation.GetElevation(latitude, longitude);
 
-                    buffer[x * 2] = (byte)(shortElevation & 255);
-                    buffer[x * 2 + 1] = (byte)(shortElevation >> 8);
+                        writer.Write((short)Math.Round(elevation ?? 0));
+                    }
                 }
 
-                output.WriteScanline(buffer, y);
+                writer.Flush();
+                await zipStream.FlushAsync();
             }
 
-            output.Flush();
-
-            using (var outMs = new MemoryStream())
-            using (var zipStream = new GZipOutputStream(outMs))
-            {
-                zipStream.Write(((MemoryStream)output.Clientdata()).ToArray());
-                zipStream.Flush();
-                return outMs.ToArray();
-            }
+            return outMs.ToArray();
         }
     }
-    
-    private string getCacheFilename(BoundingBox bounds, int resolution)
+
+    private string GetCacheFilename(BoundingBox bounds, int resolution)
     {
         var key = new byte[18];
         Buffer.BlockCopy(BitConverter.GetBytes((float)bounds.MinLatitude), 0, key, 0, 4);
@@ -100,6 +84,6 @@ public class TileCache {
         Buffer.BlockCopy(BitConverter.GetBytes((float)bounds.MaxLongitude), 0, key, 12, 4);
         Buffer.BlockCopy(BitConverter.GetBytes((ushort)resolution), 0, key, 16, 2);
 
-        return _cacheFolder + Path.DirectorySeparatorChar + Convert.ToBase64String(key) + ".tiff.gzip";
+        return _cacheFolder + Path.DirectorySeparatorChar + Convert.ToBase64String(key) + ".bin.gzip";
     }
 }
