@@ -330,6 +330,14 @@ export class DoubleMatrix {
         );
     }
 
+    public resetTranslation(): DoubleMatrix {
+        const result = this.clone();
+        result.M14 = 0;
+        result.M24 = 0;
+        result.M34 = 0;
+        return result;
+    }
+
     public static getTranslationMatrix(x: number, y: number, z: number): DoubleMatrix {
         const result = new DoubleMatrix();
         result.M14 = x;

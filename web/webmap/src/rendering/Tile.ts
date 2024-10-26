@@ -14,6 +14,8 @@ export class Tile {
     public bounds: BoundingBox;
 
     // WebGL index buffer
+    private triCount: number;
+
     public indexBuffer: WebGLBuffer | null;
     public vertexBuffer: WebGLBuffer | null;
     public textureBuffer: WebGLBuffer | null;
@@ -37,7 +39,7 @@ export class Tile {
 
         const gl = this.context.gl;
 
-        // Create vertex buffer
+        // Create index-, vertex- and texture coordinate buffers
         this.indexBuffer = Tile.buildIndexBuffer(gl);
 
         const vb = Tile.buildVertexBuffer(gl, this.bounds);
@@ -46,8 +48,7 @@ export class Tile {
 
         this.textureBuffer = Tile.buildTextureBuffer(gl, mapDescriptor, textureDescriptor);
 
-
-
+        this.triCount = (tesselationSteps + 1) * (tesselationSteps + 1) * 2; 
     }
 
     public dispose() {
@@ -76,14 +77,38 @@ export class Tile {
      * Renders the tile
      * @param cameraPosition Carthesian camera position in world space
      */
-    public render(context: RenderContext, cameraPosition: DoubleVector3) {
+    public render(context: RenderContext, cameraPosition: DoubleVector3, cameraMatrix: DoubleMatrix) {
         // Tile center is the origin. We need to translate the tile into camera space without
         // going through world space. The big numbers involved in world space would blow up
         // single precision floating point precision.
         const delta = this.boundingSphere.center.subtract(cameraPosition);
         const objectToCamera = DoubleMatrix.getTranslationMatrix(delta.x, delta.y, delta.z);
 
-        // TODO: Actually render that tile
+        // Calculate tile matrix by using the camera's rotation- and projection matrix, and translate
+        // that by the relative offset between the camera and the tile.
+        const tileMatrix = objectToCamera.multiply(cameraMatrix);
+        context.gl.uniformMatrix4fv(context.locations.worldViewProjectionMatrix, false, tileMatrix.toFloat32Array());
+
+        // Set up vertex stream
+        context.gl.bindBuffer(context.gl.ARRAY_BUFFER, this.vertexBuffer);
+        context.gl.enableVertexAttribArray(context.locations.position);
+        context.gl.vertexAttribPointer(context.locations.position, 4, context.gl.FLOAT, false, 0, 0);
+
+        // Set up texture coordinates
+        context.gl.bindBuffer(context.gl.ARRAY_BUFFER, this.textureBuffer);
+        context.gl.enableVertexAttribArray(context.locations.textureCoord);
+        context.gl.vertexAttribPointer(context.locations.textureCoord, 2, context.gl.FLOAT, false, 0, 0);
+
+        // Set up texture
+        context.gl.activeTexture(context.gl.TEXTURE0);
+        context.gl.bindTexture(context.gl.TEXTURE_2D, this.texture);
+        context.gl.uniform1i(context.locations.sampler, 0);
+
+        // Set index buffer
+        context.gl.bindBuffer(context.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+
+        // Draw the tile
+        context.gl.drawElements(context.gl.TRIANGLES, this.triCount, context.gl.UNSIGNED_SHORT, 0);
     }
 
     private static buildTextureBuffer(gl: WebGL2RenderingContext, mapDescriptor: TileDescriptor, textureDescriptor: TileDescriptor) {

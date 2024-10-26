@@ -1,5 +1,4 @@
 import { DoubleMatrix } from "../geometry/DoubleMatrix";
-import { Tile } from "./Tile";
 import { buildBuffer, buildProgram, buildVertexBuffer, compileShader, resizeCanvasToDisplaySize } from "./Utils";
 
 export class RenderContext {
@@ -8,6 +7,18 @@ export class RenderContext {
     public readonly tileProgram: WebGLProgram;
 
     private observer: ResizeObserver;
+
+    public locations: {
+        worldViewProjectionMatrix: WebGLUniformLocation | null;
+        sampler: WebGLUniformLocation | null;
+        textureCoord: number;
+        position: number;
+    } = {
+        worldViewProjectionMatrix: null,
+        sampler: null,
+        textureCoord: -1,
+        position: -1,
+    }
 
 
     constructor(public canvas: HTMLCanvasElement) {
@@ -30,6 +41,14 @@ export class RenderContext {
             vertexShader,
             fragmentShader,
         ]);
+
+        this.locations = {
+            worldViewProjectionMatrix: gl.getUniformLocation(this.tileProgram, "worldViewProjectionMatrix"),
+            sampler: gl.getUniformLocation(this.tileProgram, "sampler"),
+            textureCoord: gl.getAttribLocation(this.tileProgram, "textureCoord"),
+            position: gl.getAttribLocation(this.tileProgram, "position"),
+        };
+
     }
 
     public dispose() {

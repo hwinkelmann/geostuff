@@ -1,8 +1,12 @@
-import { TileDescriptor } from "../models/TileDescriptor";
+import { TileDescriptor } from "../../models/TileDescriptor";
 import { ElevationTile } from "./ElevationTile";
 
 export class ElevationLayer {
     private resolution: number;
+
+    private cache = new Map<string, ElevationTile>();
+
+    private requestQueue = new Map<string, Promise<ElevationTile>>();
 
     constructor(private urlTemplate: string, options?: {
         resolution?: number,
@@ -10,7 +14,31 @@ export class ElevationLayer {
         this.resolution = options?.resolution ?? 256;
     }
 
-    public async load(desc: TileDescriptor) {
+    /**
+     * Returns a cached elevation tile if it exists, otherwise requests it from the server
+     * @param desc Tile descriptor
+     */
+    public getOrRequestTile(desc: TileDescriptor) {
+        const key = desc.toString();
+        let tile = this.cache.get(key);
+
+        if (!tile && !this.requestQueue.has(key)) {
+            const request = this.loadTileAsync(desc);
+            this.requestQueue.set(key, request);
+
+            request.then((tile) => {
+                this.cache.set(key, tile);
+            }).catch((error) => {
+                console.error(error);
+            }).finally(() => {
+                this.requestQueue.delete(key);
+            });
+        }
+
+        return tile;
+    }
+
+    public async loadTileAsync(desc: TileDescriptor) {
         const url = this.getTileUrl(desc.x, desc.y, desc.zoom);
         const response = await fetch(url);
         const reader = response.body?.getReader();
