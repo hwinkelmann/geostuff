@@ -48,7 +48,7 @@ export class Tile {
 
         this.textureBuffer = Tile.buildTextureBuffer(gl, mapDescriptor, textureDescriptor);
 
-        this.triCount = (tesselationSteps + 1) * (tesselationSteps + 1) * 2; 
+        this.triCount = (tesselationSteps + 1) * (tesselationSteps + 1) * 2;
     }
 
     public dispose() {
@@ -77,7 +77,7 @@ export class Tile {
      * Renders the tile
      * @param cameraPosition Carthesian camera position in world space
      */
-    public render(context: RenderContext, cameraPosition: DoubleVector3, cameraMatrix: DoubleMatrix) {
+    public render(context: RenderContext, cameraPosition: DoubleVector3, cameraMatrix: DoubleMatrix, projectionMatrix: DoubleMatrix) {
         // Tile center is the origin. We need to translate the tile into camera space without
         // going through world space. The big numbers involved in world space would blow up
         // single precision floating point precision.
@@ -86,13 +86,13 @@ export class Tile {
 
         // Calculate tile matrix by using the camera's rotation- and projection matrix, and translate
         // that by the relative offset between the camera and the tile.
-        const tileMatrix = objectToCamera.multiply(cameraMatrix);
+        const tileMatrix = objectToCamera.multiply(cameraMatrix).multiply(projectionMatrix);
         context.gl.uniformMatrix4fv(context.locations.worldViewProjectionMatrix, false, tileMatrix.toFloat32Array());
 
         // Set up vertex stream
         context.gl.bindBuffer(context.gl.ARRAY_BUFFER, this.vertexBuffer);
         context.gl.enableVertexAttribArray(context.locations.position);
-        context.gl.vertexAttribPointer(context.locations.position, 4, context.gl.FLOAT, false, 0, 0);
+        context.gl.vertexAttribPointer(context.locations.position, 3, context.gl.FLOAT, false, 0, 0);
 
         // Set up texture coordinates
         context.gl.bindBuffer(context.gl.ARRAY_BUFFER, this.textureBuffer);
@@ -108,7 +108,7 @@ export class Tile {
         context.gl.bindBuffer(context.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
 
         // Draw the tile
-        context.gl.drawElements(context.gl.TRIANGLES, this.triCount, context.gl.UNSIGNED_SHORT, 0);
+        context.gl.drawElements(context.gl.TRIANGLES, this.triCount * 3, context.gl.UNSIGNED_SHORT, 0);
     }
 
     private static buildTextureBuffer(gl: WebGL2RenderingContext, mapDescriptor: TileDescriptor, textureDescriptor: TileDescriptor) {
@@ -151,9 +151,10 @@ export class Tile {
                     bounds.minLongitude + xScale * bounds.deltaLongitude
                 );
 
-                if (!isEdge)
-                    // TODO: Add real elevation sampling here
-                    coordinate.elevation = Math.sin(coordinate.latitude) * 100 + Math.cos(coordinate.longitude) * 100;
+                // TODO: Add real elevation sampling here
+                coordinate.elevation = Math.sin(coordinate.latitude) * 1 + Math.cos(coordinate.longitude) * 1;
+                if (isEdge)
+                    coordinate.elevation -= 1;
 
                 const ecef = Datum.WGS84.toCarthesian(coordinate);
                 vertices.push(ecef);
@@ -164,7 +165,6 @@ export class Tile {
 
         // Bounding sphere for scene management
         const boundingSphere = Tile.getBoundingSphere(vertices);
-
 
         // Create vertex buffer and assign it
         const vertexBuffer = gl.createBuffer();

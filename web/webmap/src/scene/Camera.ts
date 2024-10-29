@@ -8,7 +8,13 @@ export abstract class Camera {
 
     public clipPlanes: ClipPlane[] = [];
 
-    public constructor(public fov: number, public aspect: number, public near: number, public far: number) {
+    public projectionMatrix: DoubleMatrix = DoubleMatrix.Identity;
+
+    public position: DoubleVector3 = new DoubleVector3(0, 0, 0);
+
+    public viewMatrix: DoubleMatrix = DoubleMatrix.Identity;
+
+    public constructor(public fov: number, private canvas: React.RefObject<HTMLCanvasElement>, public aspect: number, public near: number, public far: number) {
     }
 
 
@@ -16,45 +22,26 @@ export abstract class Camera {
      * Matrix that transforms from world space to camera space. This needs
      * to be multiplied with the projection matrix to get the final view matrix.
      */
-    abstract getCameraMatrix(): DoubleMatrix;
+    protected abstract getCameraMatrix(): DoubleMatrix;
 
     /**
      * Returns the camera position in world space
      */
-    abstract getCameraPosition(): DoubleVector3;
+    protected abstract getCameraPosition(): DoubleVector3;
 
     /**
      * Updates the view projection matrix as well as the clip planes
      */
     public update() {
-        const projectionMatrix = getProjectionMatrix(this.fov, this.aspect, this.near, this.far);
-        const cameraMatrix = this.getCameraMatrix();
+        this.aspect = (this.canvas.current?.width ?? 1) / (this.canvas.current?.height || 1);
+        this.position = this.getCameraPosition();
+        this.projectionMatrix = DoubleMatrix.getProjectionMatrix(this.fov, this.aspect, this.near, this.far);
+        this.viewMatrix = this.getCameraMatrix();
 
-        this.viewProjectionMatrix = DoubleMatrix.multiply(projectionMatrix, cameraMatrix);
+        this.viewProjectionMatrix = DoubleMatrix.multiply(this.projectionMatrix, this.viewMatrix);
+
         this.clipPlanes = calculateClipPlanes(this.viewProjectionMatrix);
     }
-
-}
-
-/**
- * Creates a projection matrix
- * @param fov Field of view in radians
- * @param aspect Aspect ratio
- * @param near Near plane
- * @param far Far plane
- * @returns Projection matrix
- * @see https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/gluPerspective.xml
- */
-export function getProjectionMatrix(fov: number, aspect: number, near: number, far: number): DoubleMatrix {
-    const f = 1.0 / Math.tan(fov / 2);
-    const nf = 1 / (near - far);
-
-    return DoubleMatrix.fromValues(
-        f / aspect, 0, 0, 0,
-        0, f, 0, 0,
-        0, 0, (far + near) * nf, -1,
-        0, 0, (2 * far * near) * nf, 0
-    );
 }
 
 /**

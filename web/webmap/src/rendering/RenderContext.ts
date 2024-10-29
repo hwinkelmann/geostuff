@@ -116,7 +116,7 @@ export class RenderContext {
     private static readonly vertexShaderSource = `
         precision mediump float;
 
-        attribute vec4 position;
+        attribute vec3 position;
 
         uniform mat4 worldViewProjectionMatrix;
 
@@ -126,7 +126,7 @@ export class RenderContext {
         varying highp vec2 vTextureCoord;
 
         void main() {
-            gl_Position = worldViewProjectionMatrix * position;
+            gl_Position = worldViewProjectionMatrix * vec4(position, 1.0);
             vertexColor = gl_Position.z / 2.0;
             vTextureCoord = textureCoord;
         }

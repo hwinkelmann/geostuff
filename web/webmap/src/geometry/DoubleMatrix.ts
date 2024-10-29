@@ -193,12 +193,13 @@ export class DoubleMatrix {
     }
 
     public toString(): string {
-        let result = "";
-        for (let i = 0; i < 4; i++) {
-            result += `${this.data[i][0].toFixed(3)} ${this.data[i][1].toFixed(
-                3
-            )} ${this.data[i][2].toFixed(3)} ${this.data[i][3].toFixed(3)}, `;
+        function f(value: number): string {
+            return (value >= 0 ? " " : "") + value.toFixed(3);
         }
+
+        let result = "";
+        for (let i = 0; i < 4; i++)
+            result += `${f(this.data[i][0])} ${f(this.data[i][1])} ${f(this.data[i][2])} ${f(this.data[i][3])}\n`;
 
         return result;
     }
@@ -351,6 +352,26 @@ export class DoubleMatrix {
         return result;
     }
 
+    /**
+     * Creates a projection matrix
+     * @param fovY Field of view in radians
+     * @param aspect Aspect ratio
+     * @param near Near plane
+     * @param far Far plane
+     * @returns Projection matrix
+     * @see https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/gluPerspective.xml
+     */
+    public static getProjectionMatrix(fovY: number, aspect: number, near: number, far: number): DoubleMatrix {
+        const f = Math.tan(fovY / 2);
+        const nf = near - far;
+
+        return DoubleMatrix.fromValues(
+            f / aspect, 0, 0, 0,
+            0, f, 0, 0,
+            0, 0, (far + near) / nf, (2 * far * near) / nf,
+            0, 0, -1, 0
+        );
+    }
 
     /**
      * Returns a right-handed rotation around the x-axis

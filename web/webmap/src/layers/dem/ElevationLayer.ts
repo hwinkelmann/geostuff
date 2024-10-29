@@ -49,20 +49,28 @@ export class ElevationLayer {
         let x = 0;
         let y = 0;
 
-        while (true) {
+        const maxLength = this.resolution * this.resolution * 2;
+
+        // Read chunks into a single buffer for processing
+        const buffer = new Uint8Array(maxLength);
+        let offset = 0;
+        while (offset < maxLength) {
             const block = await reader?.read();
             if (!block || block.done)
                 break;
 
-            const chunk = block.value as Uint8Array;
-            for (let i = 0; i < chunk.length; i += 2) {
-                data[x][y] = chunk[i] | (chunk[i + 1] << 8);
+            buffer.set(block.value, offset);
+            offset += block.value.length;
+        }
 
-                x++;
-                if (x >= this.resolution) {
-                    x = 0;
-                    y++;
-                }
+        // Process the buffer into signed int 2D array
+        for (let i = 0; i < buffer.length; i += 2) {
+            data[x][y] = buffer[i] | (buffer[i + 1] << 8);
+
+            x++;
+            if (x >= this.resolution) {
+                x = 0;
+                y++;
             }
         }
 
