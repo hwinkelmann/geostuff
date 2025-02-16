@@ -2,15 +2,31 @@ import { DoubleVector3 } from "../geometry/DoubleVector3";
 import { Coordinate } from "./Coordinate";
 
 export class BoundingBox {
-    constructor(public minX: number, public minY: number, public minZ: number, public maxX: number, public maxY: number, public maxZ: number) {
+    constructor(
+        public minX: number = Number.MAX_VALUE, 
+        public minY: number = Number.MAX_VALUE, 
+        public minZ: number = Number.MAX_VALUE, 
+        public maxX: number = Number.MIN_VALUE,
+        public maxY: number = Number.MIN_VALUE, 
+        public maxZ: number = Number.MIN_VALUE) {
+    }
+
+    public static fromVectors(vectors: DoubleVector3[]): BoundingBox | undefined {
+        if (vectors.length === 0)
+            return undefined;
+
+        const result = new BoundingBox();
+        for (const vector of vectors)
+            result.add(vector);
+
+        return result;
     }
 
     public static fromCoordinates(coords: Coordinate[]): BoundingBox | undefined {
         if (coords.length === 0)
             return undefined;
 
-        const result = new BoundingBox(Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE, Number.MIN_VALUE, Number.MIN_VALUE, Number.MIN_VALUE);
-
+        const result = new BoundingBox();
         for (const coord of coords)
             result.add(coord);
 
@@ -21,7 +37,15 @@ export class BoundingBox {
         return new BoundingBox(bbox.minX, bbox.minY, bbox.minZ, bbox.maxX, bbox.maxY, bbox.maxZ);
     }
 
-    public get center(): Coordinate {
+    public get centerVector(): DoubleVector3 {
+        return new DoubleVector3(
+            (this.minX + this.maxX) / 2,
+            (this.minY + this.maxY) / 2,
+            (this.minZ + this.maxZ) / 2
+        );
+    }
+
+    public get centerCoordinate(): Coordinate {
         return new Coordinate(
             (this.minX + this.maxX) / 2,
             (this.minY + this.maxY) / 2,
@@ -117,8 +141,6 @@ export class BoundingBox {
         return BoundingBox.fromCoordinates([new Coordinate(54.92, 5.8), new Coordinate(10.21, 15.05)])!;
     }
 
-    public add(coord: Coordinate): void;
-    public add(bbox: BoundingBox): void;
     public add(arg1: Coordinate | DoubleVector3 | BoundingBox): void {
         if (arg1 instanceof Coordinate) {
             const coord = arg1 as Coordinate;

@@ -35,7 +35,7 @@ export class Tile {
      */
     constructor(protected context: RenderContext, public mapDescriptor: TileDescriptor, public textureDescriptor: TileDescriptor) {
         this.bounds = mapDescriptor.getBounds();
-        this.origin = Datum.WGS84.toCarthesian(this.bounds.center);
+        this.origin = Datum.WGS84.toCarthesian(this.bounds.centerCoordinate);
 
         const gl = this.context.gl;
 

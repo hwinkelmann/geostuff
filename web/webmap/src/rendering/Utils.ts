@@ -1,4 +1,13 @@
+import { DoubleMatrix } from "../geometry/DoubleMatrix";
 import { RenderContext } from "./RenderContext";
+
+export function deg2Rad(degrees: number) {
+    return degrees * Math.PI / 180;
+}
+
+export function rad2Deg(radians: number) {
+    return radians / Math.PI * 180;
+}
 
 export function resizeCanvasToDisplaySize(canvas: HTMLCanvasElement) {
     // Lookup the size the browser is displaying the canvas in CSS pixels.
@@ -29,12 +38,12 @@ export function resizeCanvasToDisplaySize(canvas: HTMLCanvasElement) {
 export function compileShader(context: RenderContext, source: string, type: number) {
     const shader = context.gl.createShader(type);
     if (!shader)
-        throw new Error("Could not create vertex shader");
+        throw new Error(`Could not create ${type === context.gl.VERTEX_SHADER ? "vertex" : "fragment"} shader`);
 
     context.gl.shaderSource(shader, source);
     context.gl.compileShader(shader);
     if (!context.gl.getShaderParameter(shader, context.gl.COMPILE_STATUS))
-        throw new Error(`Could not compile vertex shader:\n${context.gl.getShaderInfoLog(shader)}`);
+        throw new Error(`Could not compile ${type === context.gl.VERTEX_SHADER ? "vertex" : "fragment"} shader:\n${context.gl.getShaderInfoLog(shader)}`);
 
     return shader;
 }
@@ -140,3 +149,81 @@ export async function loadTexture(context: RenderContext, url: string, options?:
         image.onerror = reject;
     });
 }
+
+/**
+ * I assume the shaders have fixed names for uniforms and attributes if they use them:
+ * 
+ *  - worldViewProjectionMatrix
+ * @param context 
+ * @param program 
+ * @param params 
+ */
+export function setBuffers(context: RenderContext, program: WebGLProgram, params: {
+    vertexBuffer: WebGLBuffer;
+    indexBuffer?: WebGLBuffer | null;
+    textureCoordBuffer?: WebGLBuffer | null;
+    colorBuffer?: WebGLBuffer | null;
+
+    // texture?: WebGLTexture | null;
+    color?: [number, number, number];
+    [propName: string]: any;
+}) {
+    const gl = context.gl;
+
+    function setBuffer(propName: string, glslName: string, size: number, type = gl.FLOAT) {
+        if (!params[propName])
+           return;
+
+        const location = gl.getAttribLocation(program, glslName);
+        if (location === -1) {
+            console.warn(`Attribute ${glslName} not found in program`);
+
+            return;
+        }
+        gl.bindBuffer(gl.ARRAY_BUFFER, params[propName] as WebGLBuffer);
+        gl.enableVertexAttribArray(location);
+        gl.vertexAttribPointer(location, size, type, false, 0, 0);
+    }
+
+    setBuffer("vertexBuffer", "position", 3);
+    setBuffer("textureCoordBuffer", "textureCoord", 2);
+    setBuffer("colorBuffer", "color", 3);
+
+    if (params.color)
+        gl.uniform3fv(gl.getUniformLocation(program, "color"), params.color);
+
+    if (params.indexBuffer)
+        // No need to identify this buffer with a location. Index buffers
+        // are ELEMENT_ARRAY_BUFFERs
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, params.indexBuffer);
+}
+
+export function setMatrices(context: RenderContext, program: WebGLProgram, params: {
+    modelMatrix?: DoubleMatrix;
+    viewMatrix?: DoubleMatrix;
+    projectionMatrix?: DoubleMatrix;
+    modelViewProjectionMatrix?: DoubleMatrix;
+}) {
+    const gl = context.gl;
+
+    function setUniformMatrix(name: string, matrix?: DoubleMatrix) {
+        if (!matrix)
+                return;
+
+        const location = gl.getUniformLocation(program, name);
+        gl.uniformMatrix4fv(location, false, matrix.toFloat32Array());
+    }
+
+    setUniformMatrix("projectionMatrix", params.projectionMatrix);
+    setUniformMatrix("viewMatrix", params.viewMatrix);
+    setUniformMatrix("modelMatrix", params.modelMatrix);
+
+    if (params.modelViewProjectionMatrix)
+        setUniformMatrix("modelViewProjectionMatrix", params.modelViewProjectionMatrix);
+    else
+        if (params.modelMatrix && params.viewMatrix && params.projectionMatrix) { 
+            // const modelViewProjectionMatrix = params.modelMatrix.multiply(params.viewMatrix.multiply(params.projectionMatrix));
+            const modelViewProjectionMatrix = params.projectionMatrix.multiply(params.viewMatrix.multiply(params.modelMatrix));
+            setUniformMatrix("modelViewProjectionMatrix", modelViewProjectionMatrix);
+        }
+    }

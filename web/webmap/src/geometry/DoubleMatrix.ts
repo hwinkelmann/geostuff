@@ -211,7 +211,7 @@ export class DoubleMatrix {
             for (let col = 0; col < 4; col++) {
                 res.data[row][col] = 0;
                 for (let i = 0; i < 4; i++)
-                    res.data[row][col] += a.data[i][col] * b.data[row][i];
+                    res.data[row][col] += a.data[row][i] * b.data[i][col];
             }
         }
 
@@ -366,10 +366,10 @@ export class DoubleMatrix {
         const nf = near - far;
 
         return DoubleMatrix.fromValues(
-            f / aspect, 0, 0, 0,
-            0, f, 0, 0,
-            0, 0, (far + near) / nf, (2 * far * near) / nf,
-            0, 0, -1, 0
+            f / aspect, 0, 0,                 0,
+            0,          f, 0,                 0,
+            0,          0, (far + near) / nf, (2 * far * near) / nf,
+            0,          0, -1,                0
         );
     }
 
@@ -437,63 +437,38 @@ export class DoubleMatrix {
         return result;
     }
 
-    /**
-     * Generates a right-handed look-at matrix
-     * @param eye Eye position
-     * @param wLook Look at position
-     * @param wUp Up vector
-     * @returns Look-at matrix
-     */
-    public static getLookAtMatrixRH(eye: DoubleVector3, wLook: DoubleVector3, wUp: DoubleVector3): DoubleMatrix {
-        // See http://perry.cz/articles/ProjectionMatrix.xhtml
-        const look = eye.subtract(wLook);
-        look.normalize();
-
-        const right = wUp.cross(look);
-        right.normalize();
-
-        const up = look.cross(right);
-        up.normalize();
-
+    public static getLookAtMatrixRH(eye: DoubleVector3, target: DoubleVector3, up: DoubleVector3): DoubleMatrix {
+        const zAxis = eye.subtract(target);
+        zAxis.normalize();
+    
+        const xAxis = up.cross(zAxis);
+        xAxis.normalize();
+    
+        const yAxis = zAxis.cross(xAxis);
+        yAxis.normalize();
+    
         const result = new DoubleMatrix();
-        result.M11 = right.x;
-        result.M12 = right.y;
-        result.M13 = right.z;
-
-        result.M21 = up.x;
-        result.M22 = up.y;
-        result.M23 = up.z;
-
-        result.M31 = look.x;
-        result.M32 = look.y;
-        result.M33 = look.z;
-
-        result.M14 = right.dot(eye);
-        result.M24 = up.dot(eye);
-        result.M34 = -look.dot(eye);
+        result.M11 = xAxis.x;
+        result.M12 = xAxis.y;
+        result.M13 = xAxis.z;
+        result.M14 = -xAxis.dot(eye);
+    
+        result.M21 = yAxis.x;
+        result.M22 = yAxis.y;
+        result.M23 = yAxis.z;
+        result.M24 = -yAxis.dot(eye);
+    
+        result.M31 = zAxis.x;
+        result.M32 = zAxis.y;
+        result.M33 = zAxis.z;
+        result.M34 = -zAxis.dot(eye);
+    
+        result.M41 = 0;
+        result.M42 = 0;
+        result.M43 = 0;
         result.M44 = 1;
-
+    
         return result;
-    }
-
-    /**
-     * Creates a right-handed projection matrix.
-     * @param fov Field of view in degrees
-     * @param aspect Aspect ratio
-     * @param near Near plane
-     * @param far Far plane
-     * @returns Projection matrix
-     * @see https://www.tutorialspoint.com/webgl/webgl_cube_rotation.htm
-     */
-    public static getProjectionMatrixRH(fov: number, aspect: number, near: number, far: number): DoubleMatrix {
-        var ang = Math.tan((fov * .5) * Math.PI / 180);//angle*.5
-
-        return DoubleMatrix.fromValues(
-            0.5 / ang, 0, 0, 0,
-            0, 0.5 * aspect / ang, 0, 0,
-            0, 0, -(far + near) / (far - near), -1,
-            0, 0, (-2 * far * near) / (far - near), 0
-        );
     }
 
     public toFloat32Array(): Float32Array {

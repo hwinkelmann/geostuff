@@ -5,12 +5,26 @@ import { DoubleVector3 } from "../geometry/DoubleVector3";
 import { Camera } from "./Camera";
 
 export class CoordinateLookAtCamera extends Camera {
-    constructor(fov: number, private canvas: React.RefObject<HTMLCanvasElement>, near: number, far: number, public position: Coordinate, public lookAt: Coordinate, private datum = Datum.WGS84) { 
-        super(fov, 1, near, far);
+    private positionCoordinate: Coordinate;
+
+    /**
+     * @param fov Field of view in radians
+     */
+    constructor(fov: number, canvas: React.RefObject<HTMLCanvasElement>, near: number, far: number, position: Coordinate, public lookAt: Coordinate, private datum = Datum.WGS84) { 
+        super(fov, canvas, 1, near, far);
+        this.positionCoordinate = position;
+    }
+
+    public setPosition(coordinate: Coordinate) {
+        this.positionCoordinate = coordinate;
+    }
+
+    public setLookAt(coordinate: Coordinate) {
+        this.lookAt = coordinate;
     }
 
     public getCameraPosition(): DoubleVector3 {
-        return this.datum.toCarthesian(this.position);
+        return this.datum.toCarthesian(this.positionCoordinate);
     }
 
     public getCameraMatrix(): DoubleMatrix {

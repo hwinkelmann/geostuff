@@ -149,3 +149,5 @@ export class DoubleVector3 {
         return this;
     }
 }
+
+export const origin = new DoubleVector3(0, 0, 0);

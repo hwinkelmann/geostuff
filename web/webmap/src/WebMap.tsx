@@ -9,6 +9,7 @@ import { TileDescriptor } from "./models/TileDescriptor";
 import { Coordinate } from "./geography/Coordinate";
 import { CoordinateLookAtCamera } from "./scene/CoordinateLookAtCamera";
 import { Tile } from "./rendering/Tile";
+import { Sphere } from "./rendering/renderables/Sphere";
 
 export function WebMap() {
     // Get a reference to the canvas element, create a webgl context and draw a triangle
@@ -16,7 +17,7 @@ export function WebMap() {
 
     const [context, setContext] = useState<RenderContext | null>(null);
 
-    const elevationLayer = new ElevationLayer("http://localhost:5173/api/elevation/tile?z={z}&x={x}&y={y}&resolution={resolution}", {
+    const elevationLayer = new ElevationLayer("/api/elevation/tile?z={z}&x={x}&y={y}&resolution={resolution}", {
         resolution: 256,
     });
 
@@ -41,11 +42,20 @@ export function WebMap() {
     const [texture, setTexture] = useState<WebGLTexture | null>(null);
     const [tile, setTile] = useState<Tile | null>(null);
 
+
+    const [sphere, setSphere] = useState<Sphere | null>(null);
+    useEffect(() => {
+        if (!context?.gl)
+            return;
+
+        setSphere(new Sphere(context, new DoubleVector3(0, 0, 0), 10, 2));
+    }, [context?.gl]);
+
     useEffect(() => {
         if (!context)
             return;
 
-        loadTexture(context, "http://localhost:5173/tex0.png").then(setTexture);
+        loadTexture(context, "/tex0.png").then(setTexture);
 
         setTile(new Tile(context,
             new TileDescriptor(0, 0, 0),
@@ -57,7 +67,7 @@ export function WebMap() {
         drawScene(context);
 
     if (tile && context)
-        tile.render(context, camera.getCameraPosition(), camera.getCameraMatrix());
+        tile.render(context, camera.getCameraPosition(), camera.getCameraMatrix(), camera.getProjectionMatrix());
 
     return <canvas className="webmap" ref={canvasRef}>
         hello from webmap
@@ -71,6 +81,8 @@ export function WebMap() {
         // const tile = new Tile(context, desc, desc);
 
         context.clear();
+
+        camera.update();
 
         const fov = 50;
         const aspect = context.canvas.width / context.canvas.height;

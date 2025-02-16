@@ -13,11 +13,13 @@ export class RenderContext {
         sampler: WebGLUniformLocation | null;
         textureCoord: number;
         position: number;
+        color: number;
     } = {
         worldViewProjectionMatrix: null,
         sampler: null,
         textureCoord: -1,
         position: -1,
+        color: -1,
     }
 
 
@@ -47,6 +49,7 @@ export class RenderContext {
             sampler: gl.getUniformLocation(this.tileProgram, "sampler"),
             textureCoord: gl.getAttribLocation(this.tileProgram, "textureCoord"),
             position: gl.getAttribLocation(this.tileProgram, "position"),
+            color: gl.getAttribLocation(this.tileProgram, "color"),
         };
 
     }
@@ -57,8 +60,11 @@ export class RenderContext {
 
     public clear() {
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-        this.gl.depthRange(0, 1);
-        this.gl.disable(this.gl.DEPTH_TEST);
+        this.gl.depthRange(-1, 1);
+        this.gl.enable(this.gl.DEPTH_TEST);
+
+        // this.gl.enable(this.gl.CULL_FACE);
+        this.gl.frontFace(this.gl.CW);
         
         this.gl.clearColor(0.5, 0.5, 0.5, 1.0);
         this.gl.clearDepth(1.0);
@@ -117,6 +123,8 @@ export class RenderContext {
         precision mediump float;
 
         attribute vec3 position;
+
+        attribute vec3 color;
 
         uniform mat4 worldViewProjectionMatrix;
 

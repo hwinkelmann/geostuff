@@ -4,6 +4,8 @@ import { Coordinate } from "./Coordinate";
 export class Datum {
     public static WGS84: Datum = new Datum(6378137, 1.0 / 298.257223563, 0, 0, 0);
 
+    public static SmallDebug: Datum = new Datum(1000, 1.0 / 298.257223563, 0, 0, 0);
+
     protected a: number;
     protected b: number;
     protected e: number;
@@ -31,10 +33,14 @@ export class Datum {
 
         const N = this.radiusOfCurvature(coordinate.latitude);
 
+        // z und y vertauscht und dann x und z
+
+        // x => z, y => x, z => y
+
         const result = new DoubleVector3();
-        result.x = ((N + (coordinate.elevation ?? 0)) * Math.cos(radLat) * Math.cos(radLon) + this.xShift);
-        result.y = ((N + (coordinate.elevation ?? 0)) * Math.cos(radLat) * Math.sin(radLon) + this.yShift);
-        result.z = (((this.b * this.b * N) / (this.a * this.a)) * Math.sin(radLat) + this.zShift);
+        result.z = ((N + (coordinate.elevation ?? 0)) * Math.cos(radLat) * Math.cos(radLon) + this.xShift);
+        result.x = ((N + (coordinate.elevation ?? 0)) * Math.cos(radLat) * Math.sin(radLon) + this.yShift);
+        result.y = (((this.b * this.b * N) / (this.a * this.a)) * Math.sin(radLat) + this.zShift);
 
         return result;
     }
@@ -47,14 +53,25 @@ export class Datum {
     public fromCarthesian(position: DoubleVector3): Coordinate {
         const coord = new Coordinate();
 
-        coord.longitude = Math.atan2(position.y, position.y) * 180.0 / Math.PI;
+        // Apply inverse shifts
+        const x = position.x - this.yShift;
+        const y = position.y - this.zShift;
+        const z = position.z - this.xShift;
 
-        const p = Math.sqrt(position.x * position.x + position.y * position.y);
-        const theta = Math.atan2(position.z * this.a, p * this.b);
-        const phi = Math.atan2(position.z + this.e_ * this.e_ * this.b * Math.pow(Math.sin(theta), 3), p - this.e * this.e * this.a * Math.pow(Math.cos(theta), 3));
+        // Calculate longitude
+        coord.longitude = Math.atan2(x, z) * 180.0 / Math.PI;
 
+        // Calculate intermediate values
+        const p = Math.sqrt(z * z + x * x);
+        const theta = Math.atan2(y * this.a, p * this.b);
+
+        // Calculate latitude
+        const phi = Math.atan2(y + this.e_ * this.e_ * this.b * Math.pow(Math.sin(theta), 3), p - this.e * this.e * this.a * Math.pow(Math.cos(theta), 3));
         coord.latitude = phi * 180.0 / Math.PI;
-        coord.elevation = p / Math.cos(phi) - this.radiusOfCurvature(coord.latitude);
+
+        // Calculate elevation
+        const N = this.radiusOfCurvature(coord.latitude);
+        coord.elevation = p / Math.cos(phi) - N;
 
         return coord;
     }

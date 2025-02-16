@@ -1,5 +1,6 @@
 import { DoubleMatrix } from "../geometry/DoubleMatrix";
 import { DoubleVector3 } from "../geometry/DoubleVector3";
+import { deg2Rad } from "../rendering/Utils";
 import { BoundingSphere } from "./BoundingSphere";
 import { ClipPlane } from "./ClipPlane";
 
@@ -14,9 +15,13 @@ export abstract class Camera {
 
     public viewMatrix: DoubleMatrix = DoubleMatrix.Identity;
 
-    public constructor(public fov: number, private canvas: React.RefObject<HTMLCanvasElement>, public aspect: number, public near: number, public far: number) {
+    public constructor(public fov = deg2Rad(50), protected canvas: React.RefObject<HTMLCanvasElement>, public aspect = 1, public near = 0.1, public far = 2000) {
     }
 
+
+    public getProjectionMatrix(): DoubleMatrix {
+        return this.projectionMatrix;
+    }
 
     /**
      * Matrix that transforms from world space to camera space. This needs
