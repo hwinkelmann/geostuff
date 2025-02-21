@@ -8,9 +8,7 @@ import { Patch } from "./rendering/renderables/Patch";
 import { CoordinateLookAtCamera } from "./scene/CoordinateLookAtCamera";
 import { Coordinate } from "./geography/Coordinate";
 import { Datum } from "./geography/Datum";
-import { ClipPlane } from "./scene/ClipPlane";
 import { Quad } from "./rendering/renderables/Quad";
-import { constructClipPlanes } from "./scene/Camera";
 
 export function Playground() {
     // Get a reference to the canvas element, create a webgl context and draw a triangle
@@ -25,10 +23,6 @@ export function Playground() {
         passed: number,
         camera?: CoordinateLookAtCamera,
         animationFrame?: number;
-        plane?: ClipPlane;
-        quad?: Quad;
-
-        frustumPlanes?: ClipPlane[],
         planes?: Quad[],
     }>({
         started: new Date().getTime(),
@@ -80,11 +74,10 @@ export function Playground() {
         <canvas ref={canvasRef} className="webmap" />
         <div className="debug">
             <button onClick={() => {
-                ref.current.frustumPlanes = constructClipPlanes(ref.current.camera!);
                 if (ref.current.planes)
                     ref.current.planes.forEach(p => p.destroy(context!));
 
-                ref.current.planes = ref.current.frustumPlanes.map(p => new Quad(context!, p.normal!, p.point!, 50000, 1000, 0));
+                ref.current.planes = ref.current.camera?.clipPlanes.map(p => new Quad(context!, p.normal!, p.point!, 50000, 1000, 0));
             }}>
                 Debug
             </button>
@@ -119,10 +112,8 @@ export function Playground() {
         // Prepare projection-, model- and view-matrix
         context.gl.useProgram(ref.current.program!);
 
-        // ref.current.camera?.setPosition(new Coordinate(0, dt / 100, 700));
-        // ref.current.camera?.setPosition(new Coordinate(0, 0, dt % 2000 < 1000 ? 300 : 1300));
-        ref.current.camera?.setPosition(new Coordinate(ref.current.passed / 500, ref.current.passed / 500, Math.sin(ref.current.passed / 2000) * 500 + 800));
-        ref.current.camera?.setLookAt(new Coordinate(0, 0, -999));
+        ref.current.camera?.setPosition(new Coordinate(0, ref.current.passed / 500, Math.sin(ref.current.passed / 2000) * 500 + 800));
+        ref.current.camera?.setLookAt(new Coordinate(90, 0, 6000));
         ref.current.camera?.update();
 
         // The model's origin is the bounding sphere's center, and we need to
@@ -165,7 +156,7 @@ export function Playground() {
         });
 
         if (ref.current.planes?.[currentClipPlane] &&
-            ref.current.frustumPlanes?.[currentClipPlane]) {
+            ref.current.camera?.clipPlanes?.[currentClipPlane]) {
             const plane = ref.current.planes[currentClipPlane];
             setBuffers(context, ref.current.program!, {
                 vertexBuffer: plane.vertexBuffer!,
@@ -177,5 +168,7 @@ export function Playground() {
         }
 
         ref.current.animationFrame = requestAnimationFrame(() => drawScene(context!));
+
+        console.log(ref.current.camera?.isBoundingSphereVisible(ref.current.cube!.boundingSphere));
     }
 }
