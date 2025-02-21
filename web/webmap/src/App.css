@@ -1,5 +1,22 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
 .app {
     position: absolute;
     inset: 0;
     overflow: hidden;
+}
+
+.debug {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+button {
+    padding: 1rem 2rem;
 }

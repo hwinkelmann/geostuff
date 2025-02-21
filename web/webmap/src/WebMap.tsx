@@ -67,7 +67,7 @@ export function WebMap() {
         drawScene(context);
 
     if (tile && context)
-        tile.render(context, camera.getCameraPosition(), camera.getCameraMatrix(), camera.getProjectionMatrix());
+        tile.render(context, camera.getCameraPosition(), camera.getViewMatrix(), camera.getProjectionMatrix());
 
     return <canvas className="webmap" ref={canvasRef}>
         hello from webmap
@@ -86,7 +86,7 @@ export function WebMap() {
 
         const fov = 50;
         const aspect = context.canvas.width / context.canvas.height;
-        const proj = DoubleMatrix.getProjectionMatrixRH(fov, aspect, 1, 100);
+        const proj = DoubleMatrix.getProjectionMatrix(fov, aspect, 1, 100);
 
         const lookat = DoubleMatrix.getLookAtMatrixRH(new DoubleVector3(-1, 0, 1),
             new DoubleVector3(0, 0, 0), new DoubleVector3(0, 1, 0));

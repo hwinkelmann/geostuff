@@ -11,7 +11,7 @@ export class LookAtCamera extends Camera {
         return this.position;
     }
 
-    protected getCameraMatrix(): DoubleMatrix {
+    protected getViewMatrix(): DoubleMatrix {
         return DoubleMatrix.getLookAtMatrixRH(this.position, this.lookAt, this.up);
     }
 }

@@ -152,7 +152,8 @@ export class Patch {
         const center = BoundingBox.fromVectors(vertices)?.centerVector!;
 
         // Get the maximum distance from the center
-        const maxDistance = Math.sqrt(Math.max(...vertices.map(v => center.distanceToSq(v))));
+        const distancesSq = vertices.map(v => center.distanceToSq(v))
+        const maxDistance = Math.sqrt(Math.max(...distancesSq));
 
         return { center, radius: maxDistance };
     }

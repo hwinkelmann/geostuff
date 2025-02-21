@@ -27,7 +27,7 @@ export class CoordinateLookAtCamera extends Camera {
         return this.datum.toCarthesian(this.positionCoordinate);
     }
 
-    public getCameraMatrix(): DoubleMatrix {
+    public getViewMatrix(): DoubleMatrix {
         super.aspect = (this.canvas.current?.width ?? 1) / (this.canvas.current?.height ?? 1);
 
         const lookAtCarthesian = this.datum.toCarthesian(this.lookAt);

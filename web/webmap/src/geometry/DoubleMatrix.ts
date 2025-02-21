@@ -156,10 +156,19 @@ export class DoubleMatrix {
         return result;
     }
 
+    /**
+     * Creates a clone of the current matrix.
+     * @returns A new DoubleMatrix instance that is a clone of the current matrix
+     */
     public clone() {
         return DoubleMatrix.clone(this);
     }
 
+    /**
+     * Creates a clone of the given matrix.
+     * @param matrix - The matrix to clone
+     * @returns A new DoubleMatrix instance that is a clone of the given matrix
+     */
     public static clone(matrix: DoubleMatrix): DoubleMatrix {
         const result = new DoubleMatrix();
         result.data = matrix.data.map((row) => [...row]);
@@ -174,6 +183,11 @@ export class DoubleMatrix {
         return DoubleMatrix.multiply(this, matrix);
     }
 
+    /**
+     * Checks if the current matrix is equal to another object.
+     * @param obj - The object to compare with
+     * @returns True if the object is a DoubleMatrix and all elements are equal, false otherwise
+     */
     public equals(obj: any): boolean {
         if (!(obj instanceof DoubleMatrix)) {
             return false;
@@ -192,6 +206,10 @@ export class DoubleMatrix {
         return true;
     }
 
+    /**
+     * Converts the matrix to a string representation.
+     * @returns A string representation of the matrix
+     */
     public toString(): string {
         function f(value: number): string {
             return (value >= 0 ? " " : "") + value.toFixed(3);
@@ -204,6 +222,12 @@ export class DoubleMatrix {
         return result;
     }
 
+    /**
+     * Multiplies two matrices.
+     * @param a - The first matrix
+     * @param b - The second matrix
+     * @returns A new DoubleMatrix instance that is the result of the multiplication
+     */
     public static multiply(a: DoubleMatrix, b: DoubleMatrix): DoubleMatrix {
         const res = new DoubleMatrix();
 
@@ -225,7 +249,11 @@ export class DoubleMatrix {
         return matrix.multiplyMatrixVector(vector);
     }
 
-    public invert(): void {
+    /**
+     * Inverts the current matrix in place.
+     * @throws Error if the matrix is not invertible
+     */
+    public invert(): DoubleMatrix {
         const b = this.clone();
         this.data = DoubleMatrix.Identity.data.map((row) => [...row]);
 
@@ -244,7 +272,7 @@ export class DoubleMatrix {
 
             // no pivot (error)
             if (pivot === -1 || mag === 0) {
-                return;
+                throw new Error("Matrix is not invertible");
             }
 
             // move pivot row into position
@@ -290,8 +318,15 @@ export class DoubleMatrix {
                 }
             }
         }
+
+        return this;
     }
 
+    /**
+     * Multiplies the transposed matrix with a vector.
+     * @param vec - The vector to multiply with
+     * @returns A new DoubleVector3 instance that is the result of the multiplication
+     */
     public multiplyTransposedVectorMatrix(vec: DoubleVector3): DoubleVector3 {
         const result = new DoubleVector3(
             this.M11 * vec.x + this.M21 * vec.y + this.M31 * vec.z + this.M41,
@@ -307,6 +342,11 @@ export class DoubleMatrix {
         return result;
     }
 
+    /**
+     * Multiplies the matrix with a vector.
+     * @param vec - The vector to multiply with
+     * @returns A new DoubleVector3 instance that is the result of the multiplication
+     */
     public multiplyMatrixVector(vec: DoubleVector3): DoubleVector3 {
         const result = new DoubleVector3(
             this.M11 * vec.x + this.M12 * vec.y + this.M13 * vec.z + this.M14,
@@ -322,6 +362,10 @@ export class DoubleMatrix {
         return result;
     }
 
+    /**
+     * Returns the identity matrix.
+     * @returns A new DoubleMatrix instance representing the identity matrix
+     */
     public static get Identity(): DoubleMatrix {
         return DoubleMatrix.fromValues(
             1, 0, 0, 0,
@@ -331,6 +375,10 @@ export class DoubleMatrix {
         );
     }
 
+    /**
+     * Resets the translation components of the matrix.
+     * @returns A new DoubleMatrix instance with the translation components reset
+     */
     public resetTranslation(): DoubleMatrix {
         const result = this.clone();
         result.M14 = 0;
@@ -339,6 +387,13 @@ export class DoubleMatrix {
         return result;
     }
 
+    /**
+     * Creates a translation matrix.
+     * @param x - Translation along the x-axis
+     * @param y - Translation along the y-axis
+     * @param z - Translation along the z-axis
+     * @returns A new DoubleMatrix instance representing the translation matrix
+     */
     public static getTranslationMatrix(x: number, y: number, z: number): DoubleMatrix {
         const result = new DoubleMatrix();
         result.M14 = x;
@@ -362,14 +417,14 @@ export class DoubleMatrix {
      * @see https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/gluPerspective.xml
      */
     public static getProjectionMatrix(fovY: number, aspect: number, near: number, far: number): DoubleMatrix {
-        const f = Math.tan(fovY / 2);
+        const f = 1 / Math.tan(fovY / 2);
         const nf = near - far;
 
         return DoubleMatrix.fromValues(
-            f / aspect, 0, 0,                 0,
-            0,          f, 0,                 0,
-            0,          0, (far + near) / nf, (2 * far * near) / nf,
-            0,          0, -1,                0
+            f / aspect, 0, 0, 0,
+            0, f, 0, 0,
+            0, 0, (far + near) / nf, (2 * far * near) / nf,
+            0, 0, -1, 0
         );
     }
 
@@ -427,6 +482,13 @@ export class DoubleMatrix {
         return result;
     }
 
+    /**
+     * Creates a scaling matrix.
+     * @param factorX - Scaling factor along the x-axis
+     * @param factorY - Scaling factor along the y-axis (optional, defaults to factorX)
+     * @param factorZ - Scaling factor along the z-axis (optional, defaults to factorX)
+     * @returns A new DoubleMatrix instance representing the scaling matrix
+     */
     public static getScalingMatrix(factorX: number, factorY?: number, factorZ?: number): DoubleMatrix {
         const result = new DoubleMatrix();
         result.M11 = factorX;
@@ -440,34 +502,34 @@ export class DoubleMatrix {
     public static getLookAtMatrixRH(eye: DoubleVector3, target: DoubleVector3, up: DoubleVector3): DoubleMatrix {
         const zAxis = eye.subtract(target);
         zAxis.normalize();
-    
+
         const xAxis = up.cross(zAxis);
         xAxis.normalize();
-    
+
         const yAxis = zAxis.cross(xAxis);
         yAxis.normalize();
-    
+
         const result = new DoubleMatrix();
         result.M11 = xAxis.x;
         result.M12 = xAxis.y;
         result.M13 = xAxis.z;
         result.M14 = -xAxis.dot(eye);
-    
+
         result.M21 = yAxis.x;
         result.M22 = yAxis.y;
         result.M23 = yAxis.z;
         result.M24 = -yAxis.dot(eye);
-    
+
         result.M31 = zAxis.x;
         result.M32 = zAxis.y;
         result.M33 = zAxis.z;
         result.M34 = -zAxis.dot(eye);
-    
+
         result.M41 = 0;
         result.M42 = 0;
         result.M43 = 0;
         result.M44 = 1;
-    
+
         return result;
     }
 
@@ -546,5 +608,31 @@ export class DoubleMatrix {
             DoubleMatrix.multiply(tb, scaling),
             at
         );
+    }
+
+    /**
+     * Returns the front vector, if the current matrix happens to be a view matrix.
+     * @returns Front vector
+     */
+    public getFrontVector(): DoubleVector3 {
+        return new DoubleVector3(this.M31, this.M32, this.M33);
+    }
+
+    /**
+     * Returns the vector pointing to the right, if the current matrix happens to be 
+     * a view matrix.
+     * @returns Vector pointing right
+     */
+    public getRightVector(): DoubleVector3 {
+        return new DoubleVector3(this.M11, this.M12, this.M13);
+    }
+
+    /**
+     * Returns the vector pointing up, if the current matrix happens to be 
+     * a view matrix.
+     * @returns Up vector
+     */
+    public getUpVector(): DoubleVector3 {
+        return new DoubleVector3(this.M21, this.M22, this.M23);
     }
 }

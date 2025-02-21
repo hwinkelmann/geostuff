@@ -8,6 +8,9 @@ import { Patch } from "./rendering/renderables/Patch";
 import { CoordinateLookAtCamera } from "./scene/CoordinateLookAtCamera";
 import { Coordinate } from "./geography/Coordinate";
 import { Datum } from "./geography/Datum";
+import { ClipPlane } from "./scene/ClipPlane";
+import { Quad } from "./rendering/renderables/Quad";
+import { constructClipPlanes } from "./scene/Camera";
 
 export function Playground() {
     // Get a reference to the canvas element, create a webgl context and draw a triangle
@@ -19,10 +22,17 @@ export function Playground() {
         program?: WebGLProgram,
         cube?: Patch,
         started: number,
+        passed: number,
         camera?: CoordinateLookAtCamera,
         animationFrame?: number;
+        plane?: ClipPlane;
+        quad?: Quad;
+
+        frustumPlanes?: ClipPlane[],
+        planes?: Quad[],
     }>({
         started: new Date().getTime(),
+        passed: 0,
     });
 
     useEffect(() => {
@@ -36,7 +46,7 @@ export function Playground() {
         const c = new RenderContext(canvasRef.current);
         setContext(c);
 
-        ref.current.camera = new CoordinateLookAtCamera(deg2Rad(90), canvasRef, 0.1, 8000, new Coordinate(-1, 0, 2000), new Coordinate(0, 0, 0), Datum.SmallDebug);
+        ref.current.camera = new CoordinateLookAtCamera(deg2Rad(90), canvasRef, 0.1, 2800, new Coordinate(-1, 0, 2000), new Coordinate(0, 0, 0), Datum.SmallDebug);
 
         ref.current.program = buildProgram(c, [
             compileShader(c, vertexShader, c.gl.VERTEX_SHADER),
@@ -55,15 +65,40 @@ export function Playground() {
         canvasRef.current,
     ]);
 
+    const [moveCamera, setMoveCamera] = useState<boolean>(false);
+    const [currentClipPlane, setCurrentClipPlane] = useState<number>(0);
+
     useEffect(() => {
         ref.current.animationFrame = requestAnimationFrame(() => drawScene(context!));
 
         return () => {
             cancelAnimationFrame(ref.current.animationFrame ?? 0);
         };
-    }, [context]);
+    }, [context, moveCamera, currentClipPlane]);
 
-    return <canvas ref={canvasRef} className="webmap" />;
+    return <>
+        <canvas ref={canvasRef} className="webmap" />
+        <div className="debug">
+            <button onClick={() => {
+                ref.current.frustumPlanes = constructClipPlanes(ref.current.camera!);
+                if (ref.current.planes)
+                    ref.current.planes.forEach(p => p.destroy(context!));
+
+                ref.current.planes = ref.current.frustumPlanes.map(p => new Quad(context!, p.normal!, p.point!, 50000, 1000, 0));
+            }}>
+                Debug
+            </button>
+
+            <input type="number" value={currentClipPlane} onChange={e => setCurrentClipPlane(parseInt(e.target.value))} min={0} max={5} />
+
+            <label htmlFor="moveCamera">
+                <input id="moveCamera" type="checkbox" checked={moveCamera} onChange={() => {
+                    setMoveCamera(state => !state)} 
+                }/>Move camera
+            </label>
+        </div>
+
+    </>;
 
     function drawScene(context: RenderContext) {
         if (!ref.current || !context)
@@ -73,30 +108,74 @@ export function Playground() {
 
         context.clear();
 
-        const dt = new Date().getTime() - ref.current.started;
+        const time = new Date().getTime();
+        if (!moveCamera)
+            ref.current.started = time;
+
+        const dt = time - ref.current.started;
+        ref.current.passed += dt;
+        ref.current.started = time;
 
         // Prepare projection-, model- and view-matrix
         context.gl.useProgram(ref.current.program!);
 
         // ref.current.camera?.setPosition(new Coordinate(0, dt / 100, 700));
-        ref.current.camera?.setPosition(new Coordinate(0, dt/100, 700));
-        ref.current.camera?.setLookAt(new Coordinate(90, 0, 0));
+        // ref.current.camera?.setPosition(new Coordinate(0, 0, dt % 2000 < 1000 ? 300 : 1300));
+        ref.current.camera?.setPosition(new Coordinate(ref.current.passed / 500, ref.current.passed / 500, Math.sin(ref.current.passed / 2000) * 500 + 800));
+        ref.current.camera?.setLookAt(new Coordinate(0, 0, -999));
         ref.current.camera?.update();
+
+        // The model's origin is the bounding sphere's center, and we need to
+        // calculate the relative position of that to the camera. The usual way
+        // to do this is to multiply the model- and view matrix, but that would
+        // involve very large numbers (the translation part of the model matrix)
+        // which would be multiplied with very small numbers (the rotation part),
+        // leading to a loss of precision.
+        // To remedy this, we're calculating a "model-to-camera" translation matrix,
+        // which is then multiplied by the rotation part of the view matrix.
+        const cameraPosition = ref.current.camera!.getCameraPosition();
+        const modelPosition = ref.current.cube?.boundingSphere.center;
+
+        const modelToCameraTranslation = DoubleMatrix.getTranslationMatrix(
+            modelPosition!.x - cameraPosition!.x,
+            modelPosition!.y - cameraPosition!.y,
+            modelPosition!.z - cameraPosition!.z
+        );
 
         setMatrices(context, ref.current.program!, {
             projectionMatrix: ref.current.camera?.getProjectionMatrix(),
-            modelMatrix: DoubleMatrix.Identity,
-            viewMatrix: ref.current.camera?.getCameraMatrix(),
+            modelMatrix: modelToCameraTranslation,
+            viewMatrix: ref.current.camera?.getViewMatrix().resetTranslation(),
         });
 
-        // setBuffers(context, ref.current.program!, {
-        //     vertexBuffer: ref.current.cube!.vertexBuffer!,
-        //     textureCoordBuffer: ref.current.cube!.textureBuffer!,
-        //     indexBuffer: ref.current.cube?.indexBuffer,
-        //     color: [1, 0, 0],
-        // });
+        setBuffers(context, ref.current.program!, {
+            vertexBuffer: ref.current.cube!.vertexBuffer!,
+            textureCoordBuffer: ref.current.cube!.textureBuffer!,
+            indexBuffer: ref.current.cube?.indexBuffer,
+            color: [1, 0, 0],
+        });
 
         context.gl.drawElements(context.gl.TRIANGLES, ref.current.cube!.triCount * 3, context.gl.UNSIGNED_SHORT, 0);
+
+        // Draw clip planes as needed
+        setMatrices(context, ref.current.program!, {
+            projectionMatrix: ref.current.camera?.getProjectionMatrix(),
+            modelMatrix: DoubleMatrix.Identity,
+            viewMatrix: ref.current.camera?.getViewMatrix(),
+        });
+
+        if (ref.current.planes?.[currentClipPlane] &&
+            ref.current.frustumPlanes?.[currentClipPlane]) {
+            const plane = ref.current.planes[currentClipPlane];
+            setBuffers(context, ref.current.program!, {
+                vertexBuffer: plane.vertexBuffer!,
+                textureCoordBuffer: Quad!.textureBuffer!,
+            });
+
+            context.gl.disable(context.gl.CULL_FACE);
+            context.gl.drawArrays(context.gl.TRIANGLES, 0, 2 * 3);
+        }
+
         ref.current.animationFrame = requestAnimationFrame(() => drawScene(context!));
     }
 }

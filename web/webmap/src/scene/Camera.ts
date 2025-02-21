@@ -7,8 +7,6 @@ import { ClipPlane } from "./ClipPlane";
 export abstract class Camera {
     public viewProjectionMatrix: DoubleMatrix = DoubleMatrix.Identity;
 
-    public clipPlanes: ClipPlane[] = [];
-
     public projectionMatrix: DoubleMatrix = DoubleMatrix.Identity;
 
     public position: DoubleVector3 = new DoubleVector3(0, 0, 0);
@@ -27,7 +25,7 @@ export abstract class Camera {
      * Matrix that transforms from world space to camera space. This needs
      * to be multiplied with the projection matrix to get the final view matrix.
      */
-    protected abstract getCameraMatrix(): DoubleMatrix;
+    protected abstract getViewMatrix(): DoubleMatrix;
 
     /**
      * Returns the camera position in world space
@@ -41,62 +39,96 @@ export abstract class Camera {
         this.aspect = (this.canvas.current?.width ?? 1) / (this.canvas.current?.height || 1);
         this.position = this.getCameraPosition();
         this.projectionMatrix = DoubleMatrix.getProjectionMatrix(this.fov, this.aspect, this.near, this.far);
-        this.viewMatrix = this.getCameraMatrix();
+        this.viewMatrix = this.getViewMatrix();
 
-        this.viewProjectionMatrix = DoubleMatrix.multiply(this.projectionMatrix, this.viewMatrix);
-
-        this.clipPlanes = calculateClipPlanes(this.viewProjectionMatrix);
+        this.viewProjectionMatrix = DoubleMatrix.multiply(this.viewMatrix, this.projectionMatrix);
     }
 }
 
-/**
- * Calculates clip planes for frustum culling
- * @param viewProjectionMatrix View projection matrix
- * @returns Clip planes
- */
-export function calculateClipPlanes(viewProjectionMatrix: DoubleMatrix)
-{
-    const frustrumPlanes: ClipPlane[] = [
-        new ClipPlane(viewProjectionMatrix.M14 + viewProjectionMatrix.M11, viewProjectionMatrix.M24 + viewProjectionMatrix.M21, viewProjectionMatrix.M34 + viewProjectionMatrix.M31, viewProjectionMatrix.M44 + viewProjectionMatrix.M41),
-        new ClipPlane(viewProjectionMatrix.M14 - viewProjectionMatrix.M11, viewProjectionMatrix.M24 - viewProjectionMatrix.M21, viewProjectionMatrix.M34 - viewProjectionMatrix.M31, viewProjectionMatrix.M44 - viewProjectionMatrix.M41),
-        new ClipPlane(viewProjectionMatrix.M14 + viewProjectionMatrix.M12, viewProjectionMatrix.M24 + viewProjectionMatrix.M22, viewProjectionMatrix.M34 + viewProjectionMatrix.M32, viewProjectionMatrix.M44 + viewProjectionMatrix.M42),
-        new ClipPlane(viewProjectionMatrix.M14 - viewProjectionMatrix.M12, viewProjectionMatrix.M24 - viewProjectionMatrix.M22, viewProjectionMatrix.M34 - viewProjectionMatrix.M32, viewProjectionMatrix.M44 - viewProjectionMatrix.M42),
-        new ClipPlane(viewProjectionMatrix.M13, viewProjectionMatrix.M23, viewProjectionMatrix.M33, viewProjectionMatrix.M43),
-        new ClipPlane(viewProjectionMatrix.M14 - viewProjectionMatrix.M13, viewProjectionMatrix.M24 - viewProjectionMatrix.M23, viewProjectionMatrix.M34 - viewProjectionMatrix.M33, viewProjectionMatrix.M44 - viewProjectionMatrix.M43)
+export function constructClipPlanes(camera: Camera): ClipPlane[] {
+    // This helped a lot:
+    // https://learnopengl.com/Guest-Articles/2021/Scene/Frustum-Culling
+    const halfVSide = camera.far * Math.tan(camera.fov / 2);
+    const halfHSide = halfVSide * camera.aspect;
+
+    // Center of the screen in world space at the far point of frustum, so we can calculate the
+    // screen corners at the far plane by adding/subtracting the up and right vectors multiplied
+    // by half the screen size.
+    const front = camera.viewMatrix.getFrontVector().normalize();
+    const right = camera.viewMatrix.getRightVector().normalize();
+    const up = camera.viewMatrix.getUpVector().normalize();
+
+    const frontMultFar = front.clone().multiply(camera.far);
+
+    const leftNormal = up.clone().cross(frontMultFar.clone().add(right.clone().multiply(halfHSide))).normalize();
+    const rightNormal = up.clone().cross(frontMultFar.clone().add(right.clone().multiply(-halfHSide))).normalize();
+    const topNormal = right.clone().cross(frontMultFar.clone().add(up.clone().multiply(-halfVSide))).normalize();
+    const bottomNormal = right.clone().cross(frontMultFar.clone().add(up.clone().multiply(halfVSide))).normalize();
+
+    const leftPlane = ClipPlane.fromPointAndNormal(leftNormal, camera.position);
+    const rightPlane = ClipPlane.fromPointAndNormal(rightNormal, camera.position);
+    const topPlane = ClipPlane.fromPointAndNormal(topNormal, camera.position);
+    const bottomPlane = ClipPlane.fromPointAndNormal(bottomNormal, camera.position);
+    const nearPlane = ClipPlane.fromPointAndNormal(front.clone().multiply(-1), camera.position.clone().add(front.clone().multiply(-camera.near)));
+    const farPlane = ClipPlane.fromPointAndNormal(front.clone(), camera.position.clone().add(front.clone().multiply(-camera.far)));
+
+    return [
+        leftPlane,
+        rightPlane,
+        topPlane,
+        bottomPlane,
+        nearPlane,
+        farPlane,
     ];
-
-    // Normalize planes
-    for (let i = 0; i < 6; i++)
-    {
-        const magnitude = Math.sqrt(frustrumPlanes[i].a * frustrumPlanes[i].a +
-                                    frustrumPlanes[i].b * frustrumPlanes[i].b +
-                                    frustrumPlanes[i].c * frustrumPlanes[i].c);
-
-        frustrumPlanes[i].a /= magnitude;
-        frustrumPlanes[i].b /= magnitude;
-        frustrumPlanes[i].c /= magnitude;
-        frustrumPlanes[i].d /= magnitude;
-    }
-
-    return frustrumPlanes;
 }
+
+
+// // Never got this working correctly
+// export function calculateClipPlanes(m: DoubleMatrix) {
+//     const frustumPlanes: ClipPlane[] = [
+//         new ClipPlane(m.M14 + m.M11, m.M24 + m.M21, m.M34 + m.M31, m.M44 + m.M41),
+//         new ClipPlane(m.M14 - m.M11, m.M24 - m.M21, m.M34 - m.M31, m.M44 - m.M41),
+//         new ClipPlane(m.M14 + m.M12, m.M24 + m.M22, m.M34 + m.M32, m.M44 + m.M42),
+//         new ClipPlane(m.M14 - m.M12, m.M24 - m.M22, m.M34 - m.M32, m.M44 - m.M42),
+//         new ClipPlane(m.M14 + m.M13, m.M24 + m.M23, m.M34 + m.M33, m.M44 + m.M43),
+//         new ClipPlane(m.M14 - m.M13, m.M24 - m.M23, m.M34 - m.M33, m.M44 - m.M43)
+//     ];
+
+//     return frustumPlanes;
+// }
 
 /**
  * Visibility test for a bounding sphere
  * @param volume Bounding sphere
- * @param cameraPosition Camera position in world space
  * @param clipPlanes Clip planes that make up the view frustum. Calculate these using calculateClipPlanes!
  * @returns true if the volume intersects with the view frustum, false otherwise
  */
-export function isVisible(volume: BoundingSphere, cameraPosition: DoubleVector3, clipPlanes: ClipPlane[])
-{
+export function isVisible(volume: BoundingSphere, clipPlanes: ClipPlane[]) {
+    const distances: number[] = [];
     for (const plane of clipPlanes) {
-        const distance = plane.dot(
-            new DoubleVector3(volume.center.x, volume.center.y, volume.center.z).subtract(cameraPosition));
-
-        if ((distance + volume.radius) < 0)
-            return false;
+        // const distance = plane.dot(volume.center); //new DoubleVector3(volume.center.x, volume.center.y, volume.center.z).subtract(cameraPosition));
+        const distance = plane.getSignedDistance(volume.center);
+        distances.push(distance);
     }
 
-    return true;
+    const tabData = [];
+    const planeNames = ["left", "right", "bottom", "top", "near", "far"];
+    for (let i = 0; i < 6; i++) {
+        tabData.push({
+            plane: planeNames[i],
+            isWithin: (distances[i] + volume.radius) >= 0,
+            distance: distances[i],
+            normal: clipPlanes[i].normal,
+            point: clipPlanes[i].point,
+            d: clipPlanes[i].d,
+        })
+    }
+
+    // console.table(tabData);
+
+    // console.log("Volume radius:", volume.radius);
+    // console.log("Camera position:", cameraPosition);
+    // console.log("Volume center:", volume.center);
+
+    return distances.every((d) => d - volume.radius <= 0);
 }

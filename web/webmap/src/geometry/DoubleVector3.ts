@@ -88,16 +88,18 @@ export class DoubleVector3 {
         return this;
     }
 
-    public normalize(): void {
+    public normalize(): DoubleVector3 {
         const length = this.length();
 
         if (length === 0) {
-            return;
+            return this;
         }
 
         this.x /= length;
         this.y /= length;
         this.z /= length;
+
+        return this;
     }
 
     public subtract(a: DoubleVector3): DoubleVector3 {
@@ -123,23 +125,23 @@ export class DoubleVector3 {
     public transform(transform: DoubleMatrix): DoubleVector3 {
         const tempX =
             this.x * transform.M11 +
-            this.y * transform.M21 +
-            this.z * transform.M31 +
+            this.y * transform.M12 +
+            this.z * transform.M13 +
             transform.M41;
         const tempY =
-            this.x * transform.M12 +
+            this.x * transform.M21 +
             this.y * transform.M22 +
-            this.z * transform.M32 +
+            this.z * transform.M23 +
             transform.M42;
         const tempZ =
-            this.x * transform.M13 +
-            this.y * transform.M23 +
+            this.x * transform.M31 +
+            this.y * transform.M32 +
             this.z * transform.M33 +
             transform.M43;
         const tempW =
-            this.x * transform.M14 +
-            this.y * transform.M24 +
-            this.z * transform.M34 +
+            this.x * transform.M41 +
+            this.y * transform.M42 +
+            this.z * transform.M43 +
             transform.M44;
 
         this.x = tempX / tempW;
