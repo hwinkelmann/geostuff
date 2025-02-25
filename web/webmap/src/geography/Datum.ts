@@ -92,7 +92,12 @@ export class Datum {
 
         return coord;
     }
+    
     protected radiusOfCurvature(latitude: number): number {
         return this.a / Math.sqrt(1 - this.e * this.e * Math.pow(Math.sin(latitude * Math.PI / 180.0), 2));
+    }
+
+    public get meridianLength() {
+        return Math.PI * 2 * this.a;
     }
 }

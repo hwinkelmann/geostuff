@@ -3,12 +3,12 @@ import { Coordinate } from "./Coordinate";
 
 export class BoundingBox {
     constructor(
-        public minX: number = Number.MAX_VALUE, 
-        public minY: number = Number.MAX_VALUE, 
-        public minZ: number = Number.MAX_VALUE, 
-        public maxX: number = Number.MIN_VALUE,
-        public maxY: number = Number.MIN_VALUE, 
-        public maxZ: number = Number.MIN_VALUE) {
+        public minX: number = Number.POSITIVE_INFINITY, 
+        public minY: number = Number.POSITIVE_INFINITY, 
+        public minZ: number = Number.POSITIVE_INFINITY, 
+        public maxX: number = Number.NEGATIVE_INFINITY,
+        public maxY: number = Number.NEGATIVE_INFINITY, 
+        public maxZ: number = Number.NEGATIVE_INFINITY) {
     }
 
     public static fromVectors(vectors: DoubleVector3[]): BoundingBox | undefined {

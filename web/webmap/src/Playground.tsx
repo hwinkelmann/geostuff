@@ -9,6 +9,8 @@ import { CoordinateLookAtCamera } from "./scene/CoordinateLookAtCamera";
 import { Coordinate } from "./geography/Coordinate";
 import { Datum } from "./geography/Datum";
 import { Quad } from "./rendering/renderables/Quad";
+import { Lod } from "./scene/Lod";
+import { MercatorProjection } from "./geography/MercatorProjection";
 
 export function Playground() {
     // Get a reference to the canvas element, create a webgl context and draw a triangle
@@ -74,12 +76,18 @@ export function Playground() {
         <canvas ref={canvasRef} className="webmap" />
         <div className="debug">
             <button onClick={() => {
+                const lod = new Lod(Datum.SmallDebug, new MercatorProjection(), 0, 5);
+                console.log(lod.performLevelOfDetail(ref.current.camera!));
+            }}>
+                Perform LOD
+            </button>
+            <button onClick={() => {
                 if (ref.current.planes)
                     ref.current.planes.forEach(p => p.destroy(context!));
 
                 ref.current.planes = ref.current.camera?.clipPlanes.map(p => new Quad(context!, p.normal!, p.point!, 50000, 1000, 0));
             }}>
-                Debug
+                Calculate Clip Planes
             </button>
 
             <input type="number" value={currentClipPlane} onChange={e => setCurrentClipPlane(parseInt(e.target.value))} min={0} max={5} />

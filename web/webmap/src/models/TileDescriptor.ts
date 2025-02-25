@@ -1,6 +1,7 @@
 import { BoundingBox } from "../geography/BoundingBox";
 import { Coordinate } from "../geography/Coordinate";
 import { MercatorProjection } from "../geography/MercatorProjection";
+import { Projection } from "../geography/Projection";
 
 /**
  * Tile addressing descriptor
@@ -58,10 +59,10 @@ export class TileDescriptor {
         }
     }
 
-    public getBounds(): BoundingBox {
+    public getBounds(projection: Projection): BoundingBox {
         return BoundingBox.fromCoordinates([
-            TileDescriptor.projection.fromDescriptorCoordinate(this.x, this.y, this.zoom),
-            TileDescriptor.projection.fromDescriptorCoordinate(this.x + 1, this.y + 1, this.zoom),
+            projection.fromDescriptorCoordinate(this.x, this.y, this.zoom),
+            projection.fromDescriptorCoordinate(this.x + 1, this.y + 1, this.zoom),
         ])!;
     }
 
@@ -80,5 +81,9 @@ export class TileDescriptor {
 
     public hashCode(): number {
         return (this.x + this.y * 1000) * this.zoom;
+    }
+
+    public get tileStride(): number {
+        return 1 << this.zoom;
     }
 }

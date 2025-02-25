@@ -2,7 +2,7 @@ import { DoubleVector2 } from "../geometry/DoubleVector2";
 import { Coordinate } from "./Coordinate";
 import { Projection } from "./Projection";
 
-export class MercatorProjection implements Projection {
+export class MercatorProjection extends Projection {
     public project(coordinate: Coordinate): DoubleVector2 {
         const latRad: number = (coordinate.latitude * Math.PI) / 180.0;
 
@@ -36,14 +36,5 @@ export class MercatorProjection implements Projection {
         result.y *= multiplier;
 
         return result;
-    }
-
-    public fromDescriptorCoordinate(x: number, y: number, zoom: number): Coordinate {
-        const multiplier: number = Math.pow(2, zoom);
-
-        x /= multiplier;
-        y /= multiplier;
-
-        return this.unproject(new DoubleVector2(x, y));
     }
 }
