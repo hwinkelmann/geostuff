@@ -6,45 +6,43 @@ import { BoundingSphere } from "./BoundingSphere";
 import { Camera } from "./Camera";
 
 export class Lod {
-    constructor(private datum: Datum, private projection: Projection, private minLevel: number, private maxLevel: number) {
+    constructor(private datum: Datum, private projection: Projection) {
     }
 
-    public performLevelOfDetail(camera: Camera): TileDescriptor[] {
+    public performLevelOfDetail(camera: Camera, minLevel: number, maxLevel: number): TileDescriptor[] {
         const result: TileDescriptor[] = [];
-
-        this.performLevelOfDetailRecursive(camera, result, new TileDescriptor(0, 0, 0));
-
+        this.performLevelOfDetailRecursive(camera, result, new TileDescriptor(0, 0, 0), minLevel, maxLevel);
 
         return result;
     }
 
-    private performLevelOfDetailRecursive(camera: Camera, result: TileDescriptor[], desc: TileDescriptor) {
+    private performLevelOfDetailRecursive(camera: Camera, result: TileDescriptor[], desc: TileDescriptor, minLevel: number, maxLevel: number) {
         // If the tile is not visible, we can stop here
         const boundingSphere = this.getApproximateBoundingSphere(desc);
         if (!camera.isBoundingSphereVisible(boundingSphere)) {
-            console.log("bounding sphere invisible", boundingSphere)
-            return;
+            // return;
         }
 
         // Check how big the tile is on the screen
         const logicalScreenSize = this.getLogicalScreenSize(camera, desc, desc.getBounds(this.projection), boundingSphere);
 
-        if (desc.zoom >= this.minLevel &&
-            (logicalScreenSize < 2 || desc.zoom >= this.maxLevel)) {
+        console.log("Tile", desc, "is", logicalScreenSize, "big");
+
+        if (desc.zoom >= minLevel && logicalScreenSize < 2) {
             // If tile resolution is OK or we're at the maximum level, we're done.
             // Also, we need to be at least at the minimum level
-            console.log("pushierung von ", desc)
             result.push(desc);
             return;
         }
 
         // Otherwise: Refine!
-        this.performLevelOfDetailRecursive(camera, result, new TileDescriptor(desc.zoom + 1, desc.x * 2, desc.y * 2));
-        this.performLevelOfDetailRecursive(camera, result, new TileDescriptor(desc.zoom + 1, desc.x * 2 + 1, desc.y * 2));
-        this.performLevelOfDetailRecursive(camera, result, new TileDescriptor(desc.zoom + 1, desc.x * 2, desc.y * 2 + 1));
-        this.performLevelOfDetailRecursive(camera, result, new TileDescriptor(desc.zoom + 1, desc.x * 2 + 1, desc.y * 2 + 1));
-
-
+        const x = desc.x * 2;
+        const y = desc.y * 2;
+        const zoom = desc.zoom + 1;
+        this.performLevelOfDetailRecursive(camera, result, new TileDescriptor(x, y, zoom), minLevel, maxLevel);
+        this.performLevelOfDetailRecursive(camera, result, new TileDescriptor(x + 1, y, zoom), minLevel, maxLevel);
+        this.performLevelOfDetailRecursive(camera, result, new TileDescriptor(x, y + 1, zoom), minLevel, maxLevel);
+        this.performLevelOfDetailRecursive(camera, result, new TileDescriptor(x + 1, y + 1, zoom), minLevel, maxLevel);
     }
 
     private getLogicalScreenSize(camera: Camera, desc: TileDescriptor, boundingBox: BoundingBox, boundingSphere: BoundingSphere): number {
@@ -61,16 +59,11 @@ export class Lod {
         const matrix = camera.projectionMatrix;
         const x = matrix.M11 * tileMeters + matrix.M31 * distCameraVolume + matrix.M41;
         const w = matrix.M14 * tileMeters - matrix.M34 * distCameraVolume + matrix.M44;
-
-        console.log("Tile meters: " + tileMeters + ", distCameraVolume: " + distCameraVolume + ", x: " + x + ", w: " + w);
-
         return w > 0 ? x / w : 0;
     }
 
     private getApproximateBoundingSphere(desc: TileDescriptor): BoundingSphere {
         const boundingBox = desc.getBounds(this.projection);
-
-        console.log(boundingBox)
 
         // Get the best approximation of a bounding sphere that we have
         let boundingSphere: BoundingSphere | undefined = undefined;

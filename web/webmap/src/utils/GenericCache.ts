@@ -1,10 +1,17 @@
-export class Cache<K, T> {
-    constructor(private maxCacheSize: number) { }
+export class GenericCache<K, T> {
+    constructor(private maxCacheSize: number, private onPreemption?: (k: K, v: T) => void) { }
 
     private generation = 1;
 
     private generationMap = new Map<K, number>();
     private contentMap = new Map<K, T>();
+
+    peek(key: K) {
+        if (!this.generationMap.has(key))
+            return undefined;
+
+        return this.contentMap.get(key);
+    }
 
     get(key: K) {
         if (!this.generationMap.has(key))
@@ -38,7 +45,19 @@ export class Cache<K, T> {
         this.generationMap.set(key, this.generation);
     }
 
+    /**
+     * Removes all elements from the cache
+     */
     clear() {
+        if (this.onPreemption)
+            for (const key of this.contentMap.keys()) {
+                const value = this.contentMap.get(key);
+                if (value === undefined)
+                    throw new Error("element not found");
+
+                this.onPreemption(key, value);
+            }
+
         this.contentMap.clear();
         this.generationMap.clear();
     }
@@ -80,6 +99,14 @@ export class Cache<K, T> {
 
         if (minKey === undefined)
             return false;
+
+        if (this.onPreemption) {
+            const removedElement = this.contentMap.get(minKey);
+            if (removedElement === undefined)
+                throw new Error("element not found");
+
+            this.onPreemption(minKey, removedElement!);
+        }
 
         this.contentMap.delete(minKey);
         this.generationMap.delete(minKey);

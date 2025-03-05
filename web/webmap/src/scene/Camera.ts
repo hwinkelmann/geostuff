@@ -39,12 +39,12 @@ export abstract class Camera {
      * Matrix that transforms from world space to camera space. This needs
      * to be multiplied with the projection matrix to get the final view matrix.
      */
-    protected abstract getViewMatrix(): DoubleMatrix;
+    public abstract getViewMatrix(): DoubleMatrix;
 
     /**
      * Returns the camera position in world space
      */
-    protected abstract getCameraPosition(): DoubleVector3;
+    public abstract getCameraPosition(): DoubleVector3;
 
     /**
      * Updates the view projection matrix as well as the clip planes

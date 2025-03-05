@@ -38,3 +38,5 @@ export class MercatorProjection extends Projection {
         return result;
     }
 }
+
+export const mercatorProjection = new MercatorProjection();

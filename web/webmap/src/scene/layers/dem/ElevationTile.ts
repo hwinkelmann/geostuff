@@ -1,4 +1,4 @@
-import { TileDescriptor } from "../../models/TileDescriptor";
+import { TileDescriptor } from "../../../models/TileDescriptor";
 
 export class ElevationTile {
     constructor(public desc: TileDescriptor, private data: number[][], public resolution: number) {

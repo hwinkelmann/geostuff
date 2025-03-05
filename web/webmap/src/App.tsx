@@ -1,8 +1,8 @@
 import "./App.css";
-import { Playground } from "./Playground";
+import { WebMap } from "./WebMap";
 
 function App() {
-  return <div className="app"><Playground /></div>;
+  return <div className="app"><WebMap /></div>;
 }
 
 export default App

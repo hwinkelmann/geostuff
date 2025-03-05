@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import "./WebMap.css";
-import { loadTexture, resizeCanvasToDisplaySize } from "./rendering/Utils";
+import { deg2Rad, rad2Deg, resizeCanvasToDisplaySize } from "./rendering/Utils";
 import { RenderContext } from "./rendering/RenderContext";
-import { DoubleMatrix } from "./geometry/DoubleMatrix";
-import { DoubleVector3 } from "./geometry/DoubleVector3";
-import { ElevationLayer } from "./layers/dem/ElevationLayer";
-import { TileDescriptor } from "./models/TileDescriptor";
 import { Coordinate } from "./geography/Coordinate";
 import { CoordinateLookAtCamera } from "./scene/CoordinateLookAtCamera";
-import { Tile } from "./rendering/Tile";
-import { Sphere } from "./rendering/renderables/Sphere";
+import { Datum } from "./geography/Datum";
+import { mercatorProjection } from "./geography/MercatorProjection";
+import { ElevationLayer } from "./scene/layers/dem/ElevationLayer";
+import { TextureLayer } from "./scene/layers/texture/TextureLayer";
+import { BingAerialLayer } from "./scene/layers/texture/BingAerialLayer";
+import { Scene } from "./rendering/Scene";
 
 export function WebMap() {
     // Get a reference to the canvas element, create a webgl context and draw a triangle
@@ -17,81 +17,83 @@ export function WebMap() {
 
     const [context, setContext] = useState<RenderContext | null>(null);
 
-    const elevationLayer = new ElevationLayer("/api/elevation/tile?z={z}&x={x}&y={y}&resolution={resolution}", {
-        resolution: 256,
-    });
+    const ref = useRef<{
+        elevationLayer?: ElevationLayer,
+        textureLayer?: TextureLayer,
+        camera?: CoordinateLookAtCamera,
+        scene?: Scene;
+        animationFrame?: number;
+    }>({ });
 
-    const lookAt = new Coordinate(48.285449, 8.143137, 229);
-    const position = new Coordinate(48.286191, 8.207323, 500);
 
-    const camera = new CoordinateLookAtCamera(45, canvasRef, 1, 10000, position, lookAt);
+    // const lookAt = new Coordinate(48.285449, 8.143137, 229);
+    // const position = new Coordinate(48.286191, 8.207323, 50000);
+    // const camera = new CoordinateLookAtCamera(60, canvasRef, 1, 1000000, position, lookAt);
 
+    // Initialize context
     useEffect(() => {
         if (!canvasRef.current)
             return;
 
+        // Update context if exists, otherwise create new context
         if (context)
-            context.dispose();
-
-        // TODO: Missing error handling
-        setContext(new RenderContext(canvasRef.current));
+            context.init(canvasRef.current);
+        else
+            setContext(new RenderContext(canvasRef.current));
     }, [
         canvasRef.current,
     ]);
 
-    const [texture, setTexture] = useState<WebGLTexture | null>(null);
-    const [tile, setTile] = useState<Tile | null>(null);
-
-
-    const [sphere, setSphere] = useState<Sphere | null>(null);
-    useEffect(() => {
-        if (!context?.gl)
-            return;
-
-        setSphere(new Sphere(context, new DoubleVector3(0, 0, 0), 10, 2));
-    }, [context?.gl]);
-
+    // Initialize WebGL resources
     useEffect(() => {
         if (!context)
             return;
 
-        loadTexture(context, "/tex0.png").then(setTexture);
+        const textureLayer = new BingAerialLayer(context);
+        ref.current.textureLayer = textureLayer;
 
-        setTile(new Tile(context,
-            new TileDescriptor(0, 0, 0),
-            new TileDescriptor(0, 0, 0),
-        ));
+        ref.current.camera = new CoordinateLookAtCamera(deg2Rad(40), canvasRef, 10, 60000000, new Coordinate(48.286191, 8.207323, 500), new Coordinate(48.285449, 8.143137, 229));
+
+        ref.current.scene = new Scene(
+            context, 
+            Datum.WGS84, 
+            mercatorProjection, 
+            textureLayer,
+            undefined,
+            textureLayer.minLevel ?? 1, 
+            textureLayer.maxLevel ?? 10, 
+            128)
+        // ref.current.elevationLayer = new ElevationLayer(context!);
+
     }, [context]);
 
-    if (context && texture)
-        drawScene(context);
+    // Kick off render loop
+    useEffect(() => {
+        if (context)
+            ref.current.animationFrame = requestAnimationFrame(() => drawScene(context!));
 
-    if (tile && context)
-        tile.render(context, camera.getCameraPosition(), camera.getViewMatrix(), camera.getProjectionMatrix());
+        return () => {
+            cancelAnimationFrame(ref.current.animationFrame ?? 0);
+        };
+    }, [context]);
 
-    return <canvas className="webmap" ref={canvasRef}>
-        hello from webmap
-    </canvas>;
-
+    return <canvas ref={canvasRef} className="webmap" />;
 
     function drawScene(context: RenderContext) {
+        if (!ref.current || !context || !context.gl)
+            return;
+
+        // ref.current.camera?.setPosition(new Coordinate(48.241844, 8.214755, 5000000));
+        // ref.current.camera?.setLookAt(new Coordinate(48.141844, 8.214755));
+        ref.current.camera?.setPosition(new Coordinate(0, 0, 6000000));
+        ref.current.camera?.setLookAt(new Coordinate(0.1, 0, 0));
+        ref.current.camera?.update();
+
         resizeCanvasToDisplaySize(context.canvas);
-
-        // const desc = new TileDescriptor(8565, 5677, 14);
-        // const tile = new Tile(context, desc, desc);
-
         context.clear();
 
-        camera.update();
-
-        const fov = 50;
-        const aspect = context.canvas.width / context.canvas.height;
-        const proj = DoubleMatrix.getProjectionMatrix(fov, aspect, 1, 100);
-
-        const lookat = DoubleMatrix.getLookAtMatrixRH(new DoubleVector3(-1, 0, 1),
-            new DoubleVector3(0, 0, 0), new DoubleVector3(0, 1, 0));
-        const worldViewProjectionMatrix = lookat.multiply(proj);//.multiply(translation);
-
-        context.renderTile(texture!, worldViewProjectionMatrix);
+        ref.current.scene?.render(ref.current.camera!);
+        
+        ref.current.animationFrame = requestAnimationFrame(() => drawScene(context!));
     }
 }

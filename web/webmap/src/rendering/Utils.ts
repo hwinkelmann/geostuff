@@ -36,14 +36,14 @@ export function resizeCanvasToDisplaySize(canvas: HTMLCanvasElement) {
  * @returns Compiled shader object
  */
 export function compileShader(context: RenderContext, source: string, type: number) {
-    const shader = context.gl.createShader(type);
+    const shader = context.gl?.createShader(type);
     if (!shader)
-        throw new Error(`Could not create ${type === context.gl.VERTEX_SHADER ? "vertex" : "fragment"} shader`);
+        throw new Error(`Could not create ${type === context.gl?.VERTEX_SHADER ? "vertex" : "fragment"} shader`);
 
-    context.gl.shaderSource(shader, source);
-    context.gl.compileShader(shader);
-    if (!context.gl.getShaderParameter(shader, context.gl.COMPILE_STATUS))
-        throw new Error(`Could not compile ${type === context.gl.VERTEX_SHADER ? "vertex" : "fragment"} shader:\n${context.gl.getShaderInfoLog(shader)}`);
+    context.gl?.shaderSource(shader, source);
+    context.gl?.compileShader(shader);
+    if (!context.gl?.getShaderParameter(shader, context.gl.COMPILE_STATUS))
+        throw new Error(`Could not compile ${type === context.gl?.VERTEX_SHADER ? "vertex" : "fragment"} shader:\n${context.gl?.getShaderInfoLog(shader)}`);
 
     return shader;
 }
@@ -55,17 +55,17 @@ export function compileShader(context: RenderContext, source: string, type: numb
  * @returns Created program
  */
 export function buildProgram(context: RenderContext, shaders: WebGLShader[]) {
-    const program = context.gl.createProgram();
+    const program = context.gl?.createProgram();
     if (!program)
         throw new Error("Could not create program");
 
     for (const shader of shaders)
-        context.gl.attachShader(program, shader);
+        context.gl?.attachShader(program, shader);
 
-    context.gl.linkProgram(program);
+    context.gl?.linkProgram(program);
 
-    if (!context.gl.getProgramParameter(program, context.gl.LINK_STATUS))
-        throw new Error(`Could not link program:\n${context.gl.getProgramInfoLog(program)}`);
+    if (!context.gl?.getProgramParameter(program, context.gl.LINK_STATUS))
+        throw new Error(`Could not link program:\n${context.gl?.getProgramInfoLog(program)}`);
 
     return program;
 }
@@ -88,13 +88,13 @@ export function buildVertexBuffer(context: RenderContext, vertices: { x: number,
     return buildBuffer(context, array);
 }
 
-export function buildBuffer(context: RenderContext, data: Float32Array, target: number = context.gl.ARRAY_BUFFER, usage: number = context.gl.STATIC_DRAW) {
-    const buffer = context.gl.createBuffer();
+export function buildBuffer(context: RenderContext, data: Float32Array, target: number = context.gl?.ARRAY_BUFFER ?? 0, usage: number = context.gl?.STATIC_DRAW ?? 0) {
+    const buffer = context.gl?.createBuffer();
     if (!buffer)
         throw new Error("Could not create buffer");
 
-    context.gl.bindBuffer(target, buffer);
-    context.gl.bufferData(target, data, usage);
+    context.gl?.bindBuffer(target, buffer);
+    context.gl?.bufferData(target, data, usage);
 
     return buffer;
 }
@@ -120,28 +120,34 @@ export async function loadTexture(context: RenderContext, url: string, options?:
 
     return new Promise<WebGLTexture>((resolve, reject) => {
         image.onload = () => {
-            const texture = context.gl.createTexture();
+            const gl = context.gl;
+            if (!gl) {
+                reject("No GL context");
+                return;
+            }
+
+            const texture = gl.createTexture();
             if (!texture)
                 reject("Could not create texture");
 
-            context.gl.bindTexture(context.gl.TEXTURE_2D, texture);
-            context.gl.texImage2D(
-                context.gl.TEXTURE_2D,
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texImage2D(
+                gl.TEXTURE_2D,
                 0,
-                context.gl.RGBA,
-                context.gl.RGBA,
-                context.gl.UNSIGNED_BYTE,
+                gl.RGBA,
+                gl.RGBA,
+                gl.UNSIGNED_BYTE,
                 image);
 
             if (isPowerOf2(image.width) && isPowerOf2(image.height) && options?.generateMipmaps)
-                context.gl.generateMipmap(context.gl.TEXTURE_2D);
+                gl.generateMipmap(gl.TEXTURE_2D);
 
             if (options?.clampToEdge) {
-                context.gl.texParameteri(context.gl.TEXTURE_2D, context.gl.TEXTURE_WRAP_S, context.gl.CLAMP_TO_EDGE);
-                context.gl.texParameteri(context.gl.TEXTURE_2D, context.gl.TEXTURE_WRAP_T, context.gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
             }
 
-            context.gl.texParameteri(context.gl.TEXTURE_2D, context.gl.TEXTURE_MIN_FILTER, context.gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 
             resolve(texture!);
         }
@@ -169,20 +175,22 @@ export function setBuffers(context: RenderContext, program: WebGLProgram, params
     [propName: string]: any;
 }) {
     const gl = context.gl;
+    if (!gl)
+        throw new Error("No GL context");
 
-    function setBuffer(propName: string, glslName: string, size: number, type = gl.FLOAT) {
+    function setBuffer(propName: string, glslName: string, size: number, type = gl!.FLOAT) {
         if (!params[propName])
            return;
 
-        const location = gl.getAttribLocation(program, glslName);
+        const location = gl!.getAttribLocation(program, glslName);
         if (location === -1) {
             console.warn(`Attribute ${glslName} not found in program`);
 
             return;
         }
-        gl.bindBuffer(gl.ARRAY_BUFFER, params[propName] as WebGLBuffer);
-        gl.enableVertexAttribArray(location);
-        gl.vertexAttribPointer(location, size, type, false, 0, 0);
+        gl!.bindBuffer(gl!.ARRAY_BUFFER, params[propName] as WebGLBuffer);
+        gl!.enableVertexAttribArray(location);
+        gl!.vertexAttribPointer(location, size, type, false, 0, 0);
     }
 
     setBuffer("vertexBuffer", "position", 3);
@@ -205,13 +213,15 @@ export function setMatrices(context: RenderContext, program: WebGLProgram, param
     modelViewProjectionMatrix?: DoubleMatrix;
 }) {
     const gl = context.gl;
+    if (!gl)
+        throw new Error("No GL context");
 
     function setUniformMatrix(name: string, matrix?: DoubleMatrix) {
         if (!matrix)
                 return;
 
-        const location = gl.getUniformLocation(program, name);
-        gl.uniformMatrix4fv(location, false, matrix.toFloat32Array());
+        const location = gl!.getUniformLocation(program, name);
+        gl!.uniformMatrix4fv(location, false, matrix.toFloat32Array());
     }
 
     setUniformMatrix("projectionMatrix", params.projectionMatrix);

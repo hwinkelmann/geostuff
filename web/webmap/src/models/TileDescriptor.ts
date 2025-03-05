@@ -51,12 +51,11 @@ export class TileDescriptor {
         return 2 ** this.zoom;
     }
 
-    public GetParent(): TileDescriptor {
+    public getParent(): TileDescriptor | undefined {
         if (this.zoom > 0) {
             return new TileDescriptor(Math.floor(this.x / 2), Math.floor(this.y / 2), this.zoom - 1);
-        } else {
-            return this.clone();
-        }
+        } else 
+            return undefined;
     }
 
     public getBounds(projection: Projection): BoundingBox {
@@ -75,15 +74,61 @@ export class TileDescriptor {
         return desc.x === this.x && desc.y === this.y && desc.zoom === this.zoom;
     }
 
+    public getAllParents(includeSelf = false): TileDescriptor[] {
+        const parents: TileDescriptor[] = includeSelf? [this] : [];
+        let parent = this.getParent();
+        while (parent) {
+            parents.push(parent);
+            parent = parent.getParent();
+        }
+        return parents;
+    }
+
+    public includes(other: TileDescriptor): boolean {
+        if (this.equals(other))
+            return true;
+
+        if (this.zoom > other.zoom) 
+            return false;
+
+        const diff = other.zoom - this.zoom;
+        return other.x >> diff === this.x && other.y >> diff === this.y;
+    }
+
+    public includesOrEquals(other: TileDescriptor): boolean {
+        return this.equals(other) || this.includes(other);
+    }
+
     public toString(): string {
         return `${this.x}, ${this.y}, ${this.zoom}`;
     }
 
     public hashCode(): number {
-        return (this.x + this.y * 1000) * this.zoom;
+        const prime = 31;
+        let result = 1;
+        result = prime * result + this.x;
+        result = prime * result + this.y;
+        result = prime * result + this.zoom;
+        return result;
     }
 
     public get tileStride(): number {
         return 1 << this.zoom;
+    }
+
+    public getQuadKey(): string {
+        let quadKey = "";
+        for (let i = this.zoom; i > 0; i--) {
+            let digit = 0;
+            const mask = 1 << (i - 1);
+            if ((this.x & mask) !== 0) {
+                digit++;
+            }
+            if ((this.y & mask) !== 0) {
+                digit += 2;
+            }
+            quadKey += digit.toString();
+        }
+        return quadKey;
     }
 }

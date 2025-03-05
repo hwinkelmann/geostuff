@@ -1,4 +1,4 @@
-import { TileDescriptor } from "../../models/TileDescriptor";
+import { TileDescriptor } from "../../../models/TileDescriptor";
 import { ElevationTile } from "./ElevationTile";
 
 export class ElevationLayer {

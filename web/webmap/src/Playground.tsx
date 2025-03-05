@@ -4,13 +4,14 @@ import { buildProgram, compileShader, deg2Rad, resizeCanvasToDisplaySize, setBuf
 import { DoubleMatrix } from "./geometry/DoubleMatrix";
 import { fragmentShader, vertexShader } from "./shaders/TileDebug";
 import "./WebMap.css";
-import { Patch } from "./rendering/renderables/Patch";
 import { CoordinateLookAtCamera } from "./scene/CoordinateLookAtCamera";
 import { Coordinate } from "./geography/Coordinate";
 import { Datum } from "./geography/Datum";
 import { Quad } from "./rendering/renderables/Quad";
 import { Lod } from "./scene/Lod";
 import { MercatorProjection } from "./geography/MercatorProjection";
+import { TileDescriptor } from "./models/TileDescriptor";
+import { TileModel } from "./rendering/renderables/TileModel";
 
 export function Playground() {
     // Get a reference to the canvas element, create a webgl context and draw a triangle
@@ -18,9 +19,11 @@ export function Playground() {
 
     const [context, setContext] = useState<RenderContext | null>(null);
 
+    const lod = new Lod(Datum.WGS84, new MercatorProjection());
+
     const ref = useRef<{
         program?: WebGLProgram,
-        cube?: Patch,
+        cube?: TileModel,
         started: number,
         passed: number,
         camera?: CoordinateLookAtCamera,
@@ -42,14 +45,16 @@ export function Playground() {
         const c = new RenderContext(canvasRef.current);
         setContext(c);
 
-        ref.current.camera = new CoordinateLookAtCamera(deg2Rad(90), canvasRef, 0.1, 2800, new Coordinate(-1, 0, 2000), new Coordinate(0, 0, 0), Datum.SmallDebug);
+        ref.current.camera = new CoordinateLookAtCamera(deg2Rad(90), canvasRef, 1, 280000, new Coordinate(-1, 0, 200), new Coordinate(0, 0, 0), Datum.WGS84);
 
         ref.current.program = buildProgram(c, [
-            compileShader(c, vertexShader, c.gl.VERTEX_SHADER),
-            compileShader(c, fragmentShader, c.gl.FRAGMENT_SHADER),
+            compileShader(c, vertexShader, c.gl!.VERTEX_SHADER),
+            compileShader(c, fragmentShader, c.gl!.FRAGMENT_SHADER),
         ]);
 
-        ref.current.cube = new Patch(c);
+        const d = new TileDescriptor(0, 0, 0);
+
+        ref.current.cube = new TileModel(c, d, d, undefined, 48, Datum.WGS84, new MercatorProjection());
 
         setBuffers(c, ref.current.program!, {
             vertexBuffer: ref.current.cube!.vertexBuffer!,
@@ -76,8 +81,8 @@ export function Playground() {
         <canvas ref={canvasRef} className="webmap" />
         <div className="debug">
             <button onClick={() => {
-                const lod = new Lod(Datum.SmallDebug, new MercatorProjection(), 0, 5);
-                console.log(lod.performLevelOfDetail(ref.current.camera!));
+                const lod = new Lod(Datum.WGS84, new MercatorProjection());
+                console.log(lod.performLevelOfDetail(ref.current.camera!, 0, 5));
             }}>
                 Perform LOD
             </button>
@@ -118,11 +123,14 @@ export function Playground() {
         ref.current.started = time;
 
         // Prepare projection-, model- and view-matrix
-        context.gl.useProgram(ref.current.program!);
+        context.gl?.useProgram(ref.current.program!);
 
-        ref.current.camera?.setPosition(new Coordinate(0, ref.current.passed / 500, Math.sin(ref.current.passed / 2000) * 500 + 800));
-        ref.current.camera?.setLookAt(new Coordinate(90, 0, 6000));
+        ref.current.camera?.setPosition(new Coordinate(48.241844, 8.214755,500));
+        ref.current.camera?.setLookAt(new Coordinate(48.141844, 8.214755));
         ref.current.camera?.update();
+
+        const wishlist = lod.performLevelOfDetail(ref.current.camera!, 0, 5);
+
 
         // The model's origin is the bounding sphere's center, and we need to
         // calculate the relative position of that to the camera. The usual way
@@ -154,7 +162,7 @@ export function Playground() {
             color: [1, 0, 0],
         });
 
-        context.gl.drawElements(context.gl.TRIANGLES, ref.current.cube!.triCount * 3, context.gl.UNSIGNED_SHORT, 0);
+        context.gl?.drawElements(context.gl.TRIANGLES, ref.current.cube!.triCount * 3, context.gl.UNSIGNED_SHORT, 0);
 
         // Draw clip planes as needed
         setMatrices(context, ref.current.program!, {
@@ -171,12 +179,10 @@ export function Playground() {
                 textureCoordBuffer: Quad!.textureBuffer!,
             });
 
-            context.gl.disable(context.gl.CULL_FACE);
-            context.gl.drawArrays(context.gl.TRIANGLES, 0, 2 * 3);
+            context.gl?.disable(context.gl.CULL_FACE);
+            context.gl?.drawArrays(context.gl.TRIANGLES, 0, 2 * 3);
         }
 
         ref.current.animationFrame = requestAnimationFrame(() => drawScene(context!));
-
-        console.log(ref.current.camera?.isBoundingSphereVisible(ref.current.cube!.boundingSphere));
     }
 }
