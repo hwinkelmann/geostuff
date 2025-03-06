@@ -1,7 +1,9 @@
 import { BoundingBox } from "../geography/BoundingBox";
 import { Datum } from "../geography/Datum";
 import { Projection } from "../geography/Projection";
+import { DoubleVector3 } from "../geometry/DoubleVector3";
 import { TileDescriptor } from "../models/TileDescriptor";
+import { deg2Rad } from "../rendering/Utils";
 import { BoundingSphere } from "./BoundingSphere";
 import { Camera } from "./Camera";
 
@@ -20,13 +22,11 @@ export class Lod {
         // If the tile is not visible, we can stop here
         const boundingSphere = this.getApproximateBoundingSphere(desc);
         if (!camera.isBoundingSphereVisible(boundingSphere)) {
-            // return;
+            return;
         }
 
         // Check how big the tile is on the screen
         const logicalScreenSize = this.getLogicalScreenSize(camera, desc, desc.getBounds(this.projection), boundingSphere);
-
-        console.log("Tile", desc, "is", logicalScreenSize, "big");
 
         if (desc.zoom >= minLevel && logicalScreenSize < 2) {
             // If tile resolution is OK or we're at the maximum level, we're done.
@@ -47,19 +47,18 @@ export class Lod {
 
     private getLogicalScreenSize(camera: Camera, desc: TileDescriptor, boundingBox: BoundingBox, boundingSphere: BoundingSphere): number {
         // Approximation for tile width in meters
-        const tileMeters = (this.datum.meridianLength / desc.tileStride) * Math.cos(boundingBox.centerCoordinate.latitude * Math.PI / 180.0);
+        const tileMeters = (this.datum.meridianLength / desc.tileStride) * Math.cos(deg2Rad(boundingBox.centerCoordinate.latitude));
 
         // Calculate distance between camera and tile
         const distCameraVolume = Math.max(
-            boundingSphere.center.distanceTo(camera.position) - boundingSphere.radius / 2,
+            boundingSphere.center.distanceTo(camera.position) - boundingSphere.radius,
             0.1
         );
 
-        // Project tile width
+        // Calculate the width of the tile in screen space
         const matrix = camera.projectionMatrix;
-        const x = matrix.M11 * tileMeters + matrix.M31 * distCameraVolume + matrix.M41;
-        const w = matrix.M14 * tileMeters - matrix.M34 * distCameraVolume + matrix.M44;
-        return w > 0 ? x / w : 0;
+        const pt = new DoubleVector3(tileMeters, 0, -distCameraVolume);
+        return pt.transform(matrix).x;
     }
 
     private getApproximateBoundingSphere(desc: TileDescriptor): BoundingSphere {
