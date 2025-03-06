@@ -7,11 +7,11 @@ export class LookAtCamera extends Camera {
         super(fov, canvas, 1, near, far);
     }
 
-    protected getCameraPosition(): DoubleVector3 {
+    public getCameraPosition(): DoubleVector3 {
         return this.position;
     }
 
-    protected getViewMatrix(): DoubleMatrix {
+    public getViewMatrix(): DoubleMatrix {
         return DoubleMatrix.getLookAtMatrixRH(this.position, this.lookAt, this.up);
     }
 }
