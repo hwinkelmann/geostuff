@@ -11,19 +11,19 @@ export class Quad {
 
     public destroy(context: RenderContext) {
         if (this.vertexBuffer) {
-            context.gl.deleteBuffer(this.vertexBuffer);
+            context.gl?.deleteBuffer(this.vertexBuffer);
             this.vertexBuffer = null;
         }
     }
 
     public init(context: RenderContext) {
         if (!Quad.textureBuffer) {
-            Quad.textureBuffer = context.gl.createBuffer();
+            Quad.textureBuffer = context.gl!.createBuffer();
             if (!Quad.textureBuffer)
                 throw new Error("Could not create vertex buffer");
 
-            context.gl.bindBuffer(context.gl.ARRAY_BUFFER, Quad.textureBuffer);
-            context.gl.bufferData(context.gl.ARRAY_BUFFER, new Float32Array([
+            context.gl?.bindBuffer(context.gl.ARRAY_BUFFER, Quad.textureBuffer);
+            context.gl?.bufferData(context.gl.ARRAY_BUFFER, new Float32Array([
                 0.0, 0.0,
                 0.0, 1.0,
                 1.0, 0.0,
@@ -34,7 +34,7 @@ export class Quad {
         }
 
         if (!this.vertexBuffer) {
-            this.vertexBuffer = context.gl.createBuffer();
+            this.vertexBuffer = context.gl!.createBuffer();
             if (!this.vertexBuffer)
                 throw new Error("Could not create vertex buffer");
 
@@ -65,8 +65,8 @@ export class Quad {
                 p3.x, p3.y, p3.z,
             ];
 
-            context.gl.bindBuffer(context.gl.ARRAY_BUFFER, this.vertexBuffer);
-            context.gl.bufferData(context.gl.ARRAY_BUFFER, new Float32Array(vertices), context.gl.STATIC_DRAW);
+            context.gl?.bindBuffer(context.gl.ARRAY_BUFFER, this.vertexBuffer);
+            context.gl?.bufferData(context.gl.ARRAY_BUFFER, new Float32Array(vertices), context.gl.STATIC_DRAW);
         }
     }
 }

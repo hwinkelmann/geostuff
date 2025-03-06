@@ -11,7 +11,7 @@ export class Cube {
 
    public init(context: RenderContext) {
       if (!Cube.vertexBuffer) {
-         Cube.vertexBuffer = context.gl.createBuffer();
+         Cube.vertexBuffer = context.gl!.createBuffer();
          if (!Cube.vertexBuffer)
             throw new Error("Could not create vertex buffer");
 
@@ -26,18 +26,18 @@ export class Cube {
             1, 1, -1,  1, 1, 1, -1, 1, 1, -1, 1, -1,   // Top face
          ];
 
-         context.gl.bindBuffer(context.gl.ARRAY_BUFFER, Cube.vertexBuffer);
-         context.gl.bufferData(context.gl.ARRAY_BUFFER, new Float32Array(vertices), context.gl.STATIC_DRAW);
+         context.gl?.bindBuffer(context.gl.ARRAY_BUFFER, Cube.vertexBuffer);
+         context.gl?.bufferData(context.gl.ARRAY_BUFFER, new Float32Array(vertices), context.gl.STATIC_DRAW);
       }
 
       // Prepare index data
       if (!Cube.indexBuffer) {
-         Cube.indexBuffer = context.gl.createBuffer();
+         Cube.indexBuffer = context.gl!.createBuffer();
          if (!Cube.indexBuffer)
             throw new Error("Could not create index buffer");
 
-         context.gl.bindBuffer(context.gl.ELEMENT_ARRAY_BUFFER, Cube.indexBuffer);
-         context.gl.bufferData(context.gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([
+         context.gl?.bindBuffer(context.gl.ELEMENT_ARRAY_BUFFER, Cube.indexBuffer);
+         context.gl?.bufferData(context.gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([
             0, 1, 2, 0, 2, 3,       // Front 
             6, 5, 4, 7, 6, 4,       // Back 
             16, 17, 18, 16, 18, 19, // Bottom 
@@ -59,9 +59,9 @@ export class Cube {
          ];
 
          // Create and store data into color buffer
-         Cube.colorBuffer = context.gl.createBuffer();
-         context.gl.bindBuffer(context.gl.ARRAY_BUFFER, Cube.colorBuffer);
-         context.gl.bufferData(context.gl.ARRAY_BUFFER, new Float32Array(colors), context.gl.STATIC_DRAW);
+         Cube.colorBuffer = context.gl!.createBuffer();
+         context.gl?.bindBuffer(context.gl.ARRAY_BUFFER, Cube.colorBuffer);
+         context.gl?.bufferData(context.gl.ARRAY_BUFFER, new Float32Array(colors), context.gl.STATIC_DRAW);
       }
    }
 }

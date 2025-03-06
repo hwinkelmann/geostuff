@@ -19,9 +19,9 @@ export class Sphere {
                 vertices.push(position.z + radius * Math.cos(Math.PI * fv));
             }
 
-        this.vertexBuffer = context.gl.createBuffer();
-        context.gl.bindBuffer(context.gl.ARRAY_BUFFER, this.vertexBuffer);
-        context.gl.bufferData(context.gl.ARRAY_BUFFER, new Float32Array(vertices), context.gl.STATIC_DRAW);
+        this.vertexBuffer = context.gl!.createBuffer();
+        context.gl?.bindBuffer(context.gl.ARRAY_BUFFER, this.vertexBuffer);
+        context.gl?.bufferData(context.gl.ARRAY_BUFFER, new Float32Array(vertices), context.gl.STATIC_DRAW);
 
         const indices: number[] = [];
         for (let u = 0; u <= tesselation; u++)
@@ -41,9 +41,9 @@ export class Sphere {
                 indices.push(d);
             }
 
-        this.indexBuffer = context.gl.createBuffer();
-        context.gl.bindBuffer(context.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-        context.gl.bufferData(context.gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), context.gl.STATIC_DRAW);
+        this.indexBuffer = context.gl!.createBuffer();
+        context.gl?.bindBuffer(context.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+        context.gl?.bufferData(context.gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), context.gl.STATIC_DRAW);
     }
 
     public render() {
