@@ -32,10 +32,6 @@ export class TileModel {
         protected projection: Projection,
     ) {
         this.init(context);
-
-        console.log("new tile", {
-            mapDescriptor, textureDescriptor
-        })
     }
 
     /**

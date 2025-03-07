@@ -3,15 +3,17 @@
  */
 export type ResponseConverter<T> = (response: Response) => Promise<T>;
 
+export type ResourceRequest<METADATA> = {
+    url: string,
+    priority: number,
+    meta: METADATA | undefined,
+};
+
 export class Loader<T, METADATA> {
     public onDone?: (data: T, meta: METADATA | undefined) => void;
     public onError?: (url: string) => void;
 
-    private queue: {
-        url: string,
-        priority: number,
-        meta: METADATA | undefined,
-    }[] = [];
+    private queue: ResourceRequest<METADATA>[] = [];
 
     private ongoingRequests: {
         url: string,
@@ -20,7 +22,7 @@ export class Loader<T, METADATA> {
         controller: AbortController
     }[] = [];
 
-    constructor(private onResponse: ResponseConverter<T>, private maxConcurrentRequests = 4) {
+    constructor(private onResponse: ResponseConverter<T>, private maxConcurrentRequests = 1) {
         this.processQueue = this.processQueue.bind(this);
     }
 
@@ -56,6 +58,10 @@ export class Loader<T, METADATA> {
      * @returns 
      */
     public request(url: string, meta: METADATA, priority: number = 0) {
+        if (this.ongoingRequests.some(o => o.url === url))
+            // Already loading, ignore
+            return;
+
         const existing = this.queue.find(q => q.url === url);
         if (existing) {
             existing.priority = Math.max(existing.priority, priority);
@@ -63,14 +69,13 @@ export class Loader<T, METADATA> {
         }
 
         this.queue.push({ url, priority, meta });
-        this.processQueue();
     }
 
-    private processQueue() {
+    public processQueue() {
         if (this.ongoingRequests.length >= this.maxConcurrentRequests)
             return;
 
-        const next = this.queue.sort((a, b) => b.priority - a.priority).pop();
+        const next = this.queue.sort((a, b) => a.priority - b.priority).pop();
         if (!next)
             return;
 

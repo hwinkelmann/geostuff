@@ -7,18 +7,24 @@ import { deg2Rad } from "../rendering/Utils";
 import { BoundingSphere } from "./BoundingSphere";
 import { Camera } from "./Camera";
 
+export type LodDetails = {
+    desc: TileDescriptor;
+    boundingSphere: BoundingSphere;
+    logicalScreenSize: number;
+};
+
 export class Lod {
     constructor(private datum: Datum, private projection: Projection) {
     }
 
-    public performLevelOfDetail(camera: Camera, minLevel: number, maxLevel: number): TileDescriptor[] {
-        const result: TileDescriptor[] = [];
+    public performLevelOfDetail(camera: Camera, minLevel: number, maxLevel: number): LodDetails[] {
+        const result: LodDetails[] = [];
         this.performLevelOfDetailRecursive(camera, result, new TileDescriptor(0, 0, 0), minLevel, maxLevel);
 
         return result;
     }
 
-    private performLevelOfDetailRecursive(camera: Camera, result: TileDescriptor[], desc: TileDescriptor, minLevel: number, maxLevel: number) {
+    private performLevelOfDetailRecursive(camera: Camera, result: LodDetails[], desc: TileDescriptor, minLevel: number, maxLevel: number) {
         // If the tile is not visible, we can stop here
         const boundingSphere = this.getApproximateBoundingSphere(desc);
         if (!camera.isBoundingSphereVisible(boundingSphere)) {
@@ -31,7 +37,11 @@ export class Lod {
         if (desc.zoom >= minLevel && logicalScreenSize < 2) {
             // If tile resolution is OK or we're at the maximum level, we're done.
             // Also, we need to be at least at the minimum level
-            result.push(desc);
+            result.push({
+                desc,
+                logicalScreenSize,
+                boundingSphere,
+            });
             return;
         }
 

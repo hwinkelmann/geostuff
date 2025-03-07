@@ -20,6 +20,11 @@ export type MatchType<T> = {
 
 export type ResourceReceivedHandler<T> = (resource: MatchType<T>) => void;
 
+export type ResourceRequestType = {
+    desc: TileDescriptor;
+    priority: number;
+};
+
 export abstract class Layer<T> {
     /**
      * Returns the currently loaded resource that matches the requested descriptor best.
@@ -27,13 +32,6 @@ export abstract class Layer<T> {
      * @param desc 
      */
     public abstract getBestMatch(desc: TileDescriptor): MatchType<T> | undefined;
-
-    /**
-     * Can be called by interested parties to check if a given resource is already requested.
-     * @param desc Tile descriptor
-     * @returns True if the resource is already requested
-     */
-    public abstract isResourceRequested(desc: TileDescriptor): boolean;
 
     protected listeners = new Set<ResourceReceivedHandler<T>>();
 
@@ -54,5 +52,5 @@ export abstract class Layer<T> {
     /**
      * Request the loading of resources that stear towards the given wishlist.
      */
-    public abstract request(wishlist: TileDescriptor[]): void;
+    public abstract request(wishlist: ResourceRequestType[]): void;
 }

@@ -1,7 +1,7 @@
 import { TileDescriptor } from "../../../models/TileDescriptor";
 import { RenderContext } from "../../../rendering/RenderContext";
 import { Loader } from "../../Loader";
-import { Layer, MatchType } from "../Layer";
+import { Layer, MatchType, ResourceRequestType } from "../Layer";
 
 export abstract class TextureLayer extends Layer<WebGLTexture> {
     protected abstract getTileUrl(tile: TileDescriptor): string;
@@ -76,20 +76,18 @@ export abstract class TextureLayer extends Layer<WebGLTexture> {
         this.loader.dispose();
     }
 
-    public request(wishlist: TileDescriptor[]) {
-        for (let tile of wishlist) {
-            while (tile.zoom > this.minLevel && tile.zoom > this.maxLevel)
-                tile = tile.getParent()!;
+    public request(wishlist: ResourceRequestType[]) {
+        for (let element of wishlist) {
+            while (element.desc.zoom > this.minLevel && element.desc.zoom > this.maxLevel)
+                element.desc = element.desc.getParent()!;
 
-            const url = this.getTileUrl(tile);
+            const url = this.getTileUrl(element.desc);
 
             // Lower zoom levels have higher priority
-            this.loader.request(url, tile, -tile.zoom);
+            this.loader.request(url, element.desc, element.priority);
         }
-    }
 
-    public isResourceRequested(desc: TileDescriptor) {
-        return this.loader.isRequested(this.getTileUrl(desc));
+        this.loader.processQueue();
     }
 
     public getCached(desc: TileDescriptor): WebGLTexture | undefined {

@@ -4,8 +4,9 @@ import { DoubleMatrix } from "../geometry/DoubleMatrix";
 import { TileDescriptor } from "../models/TileDescriptor";
 import { Camera } from "../scene/Camera";
 import { ElevationLayer } from "../scene/layers/dem/ElevationLayer";
+import { ResourceRequestType } from "../scene/layers/Layer";
 import { TextureLayer } from "../scene/layers/texture/TextureLayer";
-import { Lod } from "../scene/Lod";
+import { Lod, LodDetails } from "../scene/Lod";
 import { GenericCache } from "../utils/GenericCache";
 import { TileModel } from "./renderables/TileModel";
 import { RenderContext } from "./RenderContext";
@@ -40,11 +41,12 @@ export class Scene {
 
     public render(camera: Camera) {
         const wishlist = this.lod.performLevelOfDetail(camera, this.minLevel, this.maxLevel);
+        const wishlistDescriptors = wishlist.map(w => w.desc);
 
-        this.refreshModels(wishlist);
-        this.fetchTextures(wishlist);
+        this.refreshModels(wishlistDescriptors);
+        this.fetchTextures(camera, wishlist);
 
-        const models = this.getBestModels(wishlist);
+        const models = this.getBestModels(wishlistDescriptors);
 
         for (const model of models)
             this.renderTile(model, camera);
@@ -142,22 +144,28 @@ export class Scene {
         return result;
     }
 
-    private fetchTextures(wishlist: TileDescriptor[]) {
-        const texturesToFetch: TileDescriptor[] = []; 1
-        for (const desc of wishlist) {
-            if (this.textureLayer?.getCached(desc))
+    private fetchTextures(camera: Camera, wishlist: LodDetails[]) {
+        const texturesToFetch: ResourceRequestType[] = [];
+        const camPosition = camera.getCameraPosition();
+
+        for (const element of wishlist) {
+            if (this.textureLayer?.getCached(element.desc))
                 // This texture is already loaded
                 continue;
 
             // Find the next texture to load. It is that tile that is closest to the
             // one that's already loaded.
-            const parentDescriptors = desc.getAllParents(true).reverse().filter(d => d.zoom >= this.minLevel);
+            const parentDescriptors = element.desc.getAllParents(true).reverse().filter(d => d.zoom >= this.minLevel);
             const textureDesc = parentDescriptors.find(d => this.textureLayer?.getCached(d) === undefined);
-            if (this.textureLayer?.isResourceRequested(textureDesc!))
-                // This texture is already requested
-                continue;
+            
+            const distanceToCamera = -element.boundingSphere.center.distanceTo(camPosition);
 
-            texturesToFetch.push(textureDesc!);
+            const priority = element.desc.zoom * -10000 - Math.min(9999, distanceToCamera);
+
+            texturesToFetch.push({
+                priority,
+                desc: textureDesc!,
+            });
         }
 
         this.textureLayer?.request(texturesToFetch);
@@ -182,9 +190,7 @@ export class Scene {
                 (bestExistingTextureDescriptor && existingModel.textureDescriptor.zoom < bestExistingTextureDescriptor.zoom);
 
             // TODO: Add elevation layer check
-            const buildModel = !existingModel || doesBetterTextureExist;
-
-            if (buildModel && bestExistingTextureDescriptor && bestExistingTexture) {
+            if (doesBetterTextureExist && bestExistingTextureDescriptor && bestExistingTexture) {
                 // We need to build a new model
                 const tile = new TileModel(this.context, bestExistingTextureDescriptor, desc, bestExistingTexture, 42, this.datum, this.projection);
 
