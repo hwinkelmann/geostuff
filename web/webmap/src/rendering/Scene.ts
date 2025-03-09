@@ -40,7 +40,7 @@ export class Scene {
     }
 
     public render(camera: Camera) {
-        const wishlist = this.lod.performLevelOfDetail(camera, this.minLevel, this.maxLevel);
+        const wishlist = this.lod.performLevelOfDetail(this.context, camera, this.minLevel, this.maxLevel);
         const wishlistDescriptors = wishlist.map(w => w.desc);
 
         this.refreshModels(wishlistDescriptors);

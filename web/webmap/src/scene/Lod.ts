@@ -3,6 +3,7 @@ import { Datum } from "../geography/Datum";
 import { Projection } from "../geography/Projection";
 import { DoubleVector3 } from "../geometry/DoubleVector3";
 import { TileDescriptor } from "../models/TileDescriptor";
+import { RenderContext } from "../rendering/RenderContext";
 import { deg2Rad } from "../rendering/Utils";
 import { BoundingSphere } from "./BoundingSphere";
 import { Camera } from "./Camera";
@@ -17,14 +18,14 @@ export class Lod {
     constructor(private datum: Datum, private projection: Projection) {
     }
 
-    public performLevelOfDetail(camera: Camera, minLevel: number, maxLevel: number): LodDetails[] {
+    public performLevelOfDetail(context: RenderContext, camera: Camera, minLevel: number, maxLevel: number): LodDetails[] {
         const result: LodDetails[] = [];
-        this.performLevelOfDetailRecursive(camera, result, new TileDescriptor(0, 0, 0), minLevel, maxLevel);
+        this.performLevelOfDetailRecursive(context, camera, result, new TileDescriptor(0, 0, 0), minLevel, maxLevel);
 
         return result;
     }
 
-    private performLevelOfDetailRecursive(camera: Camera, result: LodDetails[], desc: TileDescriptor, minLevel: number, maxLevel: number) {
+    private performLevelOfDetailRecursive(context: RenderContext, camera: Camera, result: LodDetails[], desc: TileDescriptor, minLevel: number, maxLevel: number) {
         // If the tile is not visible, we can stop here
         const boundingSphere = this.getApproximateBoundingSphere(desc);
         if (!camera.isBoundingSphereVisible(boundingSphere)) {
@@ -32,9 +33,9 @@ export class Lod {
         }
 
         // Check how big the tile is on the screen
-        const logicalScreenSize = this.getLogicalScreenSize(camera, desc, desc.getBounds(this.projection), boundingSphere);
+        const logicalScreenSize = this.getTileScreenSize(context, camera, desc, desc.getBounds(this.projection), boundingSphere);
 
-        if (desc.zoom >= minLevel && logicalScreenSize < 2) {
+        if (desc.zoom >= minLevel && logicalScreenSize < 2048) {
             // If tile resolution is OK or we're at the maximum level, we're done.
             // Also, we need to be at least at the minimum level
             result.push({
@@ -49,13 +50,13 @@ export class Lod {
         const x = desc.x * 2;
         const y = desc.y * 2;
         const zoom = desc.zoom + 1;
-        this.performLevelOfDetailRecursive(camera, result, new TileDescriptor(x, y, zoom), minLevel, maxLevel);
-        this.performLevelOfDetailRecursive(camera, result, new TileDescriptor(x + 1, y, zoom), minLevel, maxLevel);
-        this.performLevelOfDetailRecursive(camera, result, new TileDescriptor(x, y + 1, zoom), minLevel, maxLevel);
-        this.performLevelOfDetailRecursive(camera, result, new TileDescriptor(x + 1, y + 1, zoom), minLevel, maxLevel);
+        this.performLevelOfDetailRecursive(context, camera, result, new TileDescriptor(x, y, zoom), minLevel, maxLevel);
+        this.performLevelOfDetailRecursive(context, camera, result, new TileDescriptor(x + 1, y, zoom), minLevel, maxLevel);
+        this.performLevelOfDetailRecursive(context, camera, result, new TileDescriptor(x, y + 1, zoom), minLevel, maxLevel);
+        this.performLevelOfDetailRecursive(context, camera, result, new TileDescriptor(x + 1, y + 1, zoom), minLevel, maxLevel);
     }
 
-    private getLogicalScreenSize(camera: Camera, desc: TileDescriptor, boundingBox: BoundingBox, boundingSphere: BoundingSphere): number {
+    private getTileScreenSize(context: RenderContext, camera: Camera, desc: TileDescriptor, boundingBox: BoundingBox, boundingSphere: BoundingSphere): number {
         // Approximation for tile width in meters
         const tileMeters = (this.datum.meridianLength / desc.tileStride) * Math.cos(deg2Rad(boundingBox.centerCoordinate.latitude));
 
@@ -68,7 +69,9 @@ export class Lod {
         // Calculate the width of the tile in screen space
         const matrix = camera.projectionMatrix;
         const pt = new DoubleVector3(tileMeters, 0, -distCameraVolume);
-        return pt.transform(matrix).x;
+        const pixels = pt.transform(matrix).x * context.canvas.width / 2;
+        
+        return pixels;
     }
 
     private getApproximateBoundingSphere(desc: TileDescriptor): BoundingSphere {
