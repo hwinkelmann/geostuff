@@ -10,9 +10,9 @@ export class TileModel {
     // WebGL index buffer
     public triCount: number = 0;
 
-    public indexBuffer: WebGLBuffer | null = null;
-    public vertexBuffer: WebGLBuffer | null = null;
-    public textureBuffer: WebGLBuffer | null = null;
+    public indexBuffer: WebGLBuffer | undefined = undefined;
+    public vertexBuffer: WebGLBuffer | undefined = undefined;
+    public textureBuffer: WebGLBuffer | undefined = undefined;
 
     public boundingSphere: {
         center: DoubleVector3,
@@ -25,7 +25,7 @@ export class TileModel {
     constructor(
         protected context: RenderContext, 
         public textureDescriptor: TileDescriptor, 
-        public mapDescriptor: TileDescriptor, 
+        public descriptor: TileDescriptor, 
         public texture: WebGLTexture | undefined,
         protected tesselationSteps: number,
         protected datum: Datum,
@@ -59,8 +59,8 @@ export class TileModel {
         this.indexBuffer = TileModel.buildIndexBuffer(gl, this.tesselationSteps);
 
         const bounds = BoundingBox.fromCoordinates([
-            this.projection.fromDescriptorCoordinate(this.mapDescriptor.x, this.mapDescriptor.y, this.mapDescriptor.zoom),
-            this.projection.fromDescriptorCoordinate(this.mapDescriptor.x + 1, this.mapDescriptor.y + 1, this.mapDescriptor.zoom),
+            this.projection.fromDescriptorCoordinate(this.descriptor.x, this.descriptor.y, this.descriptor.zoom),
+            this.projection.fromDescriptorCoordinate(this.descriptor.x + 1, this.descriptor.y + 1, this.descriptor.zoom),
         ])!;
 
 
@@ -69,7 +69,7 @@ export class TileModel {
         this.vertexBuffer = vb.vertexBuffer;
         this.boundingSphere = vb.boundingSphere;
 
-        this.textureBuffer = TileModel.buildTextureBuffer(gl, this.tesselationSteps, this.mapDescriptor, this.textureDescriptor);
+        this.textureBuffer = TileModel.buildTextureBuffer(gl, this.tesselationSteps, this.descriptor, this.textureDescriptor);
 
         this.triCount = (this.tesselationSteps + 1) * (this.tesselationSteps + 1) * 2;
     }
@@ -135,6 +135,7 @@ export class TileModel {
         // Create vertex buffer and assign it
         const vertexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices.map(v => [
             // We're subtracting the centroid from each vertex. This makes
             // vertex positions in the view model feasible for single precision floats.

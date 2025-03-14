@@ -408,6 +408,14 @@ export class DoubleMatrix {
     }
 
     /**
+     * Returns the translation vector of the matrix.
+     * @returns A new DoubleVector3 instance representing the translation vector
+     */
+    public getTranslation(): DoubleVector3 {
+        return new DoubleVector3(this.M14, this.M24, this.M34);
+    }
+
+    /**
      * Creates a projection matrix
      * @param fovY Field of view in radians
      * @param aspect Aspect ratio
@@ -477,6 +485,41 @@ export class DoubleMatrix {
         result.M21 = Math.sin(rad);
         result.M22 = Math.cos(rad);
         result.M33 = 1;
+        result.M44 = 1;
+
+        return result;
+    }
+
+    /**
+     * Creates a rotation matrix from a quaternion's vector part.
+     * @param q - The 3D vector representing the imaginary parts (x,y,z) of a quaternion
+     * @returns A rotation matrix corresponding to the quaternion rotation
+     */
+    public static getRotationMatrixQuaternion(q: DoubleVector3): DoubleMatrix {
+        const x = q.x;
+        const y = q.y;
+        const z = q.z;
+        const w = Math.sqrt(1 - x * x - y * y - z * z);
+
+        const result = new DoubleMatrix();
+        result.M11 = 1 - 2 * y * y - 2 * z * z;
+        result.M12 = 2 * x * y - 2 * z * w;
+        result.M13 = 2 * x * z + 2 * y * w;
+        result.M14 = 0;
+
+        result.M21 = 2 * x * y + 2 * z * w;
+        result.M22 = 1 - 2 * x * x - 2 * z * z;
+        result.M23 = 2 * y * z - 2 * x * w;
+        result.M24 = 0;
+
+        result.M31 = 2 * x * z - 2 * y * w;
+        result.M32 = 2 * y * z + 2 * x * w;
+        result.M33 = 1 - 2 * x * x - 2 * y * y;
+        result.M34 = 0;
+
+        result.M41 = 0;
+        result.M42 = 0;
+        result.M43 = 0;
         result.M44 = 1;
 
         return result;

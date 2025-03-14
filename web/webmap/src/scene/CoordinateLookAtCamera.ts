@@ -33,7 +33,6 @@ export class CoordinateLookAtCamera extends Camera {
         const lookAtCarthesian = this.datum.toCarthesian(this.lookAt);
         const positionCarthesian = this.getCameraPosition();
 
-        const viewMatrix = DoubleMatrix.getLookAtMatrixRH(positionCarthesian, lookAtCarthesian, positionCarthesian);
-        return viewMatrix;
+        return DoubleMatrix.getLookAtMatrixRH(positionCarthesian, lookAtCarthesian, positionCarthesian);
     }
 }

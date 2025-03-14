@@ -4,6 +4,10 @@ export class DoubleVector2 {
     constructor(public x: number = 0, public y: number = 0) {
     }
 
+    public clone(): DoubleVector2 {
+        return new DoubleVector2(this.x, this.y);
+    }
+
     public length(): number {
         return Math.sqrt(this.x * this.x + this.y * this.y);
     }

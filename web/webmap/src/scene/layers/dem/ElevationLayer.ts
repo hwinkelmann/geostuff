@@ -1,46 +1,22 @@
 import { TileDescriptor } from "../../../models/TileDescriptor";
+import { Loader } from "../../Loader";
+import { Layer, MatchType, ResourceRequestType } from "../Layer";
 import { ElevationTile } from "./ElevationTile";
 
-export class ElevationLayer {
+export abstract class ElevationLayer extends Layer<ElevationTile> {
     private resolution: number;
 
-    private cache = new Map<string, ElevationTile>();
+    private cache: Map<string, {
+        desc: TileDescriptor,
+        url: string,
+        data: ElevationTile,
+        refCount: number,
+    }> = new Map();
 
-    private requestQueue = new Map<string, Promise<ElevationTile>>();
+    protected minLevel: number;
+    protected maxLevel: number;
 
-    constructor(private urlTemplate: string, options?: {
-        resolution?: number,
-    }) {
-        this.resolution = options?.resolution ?? 256;
-    }
-
-    /**
-     * Returns a cached elevation tile if it exists, otherwise requests it from the server
-     * @param desc Tile descriptor
-     */
-    public getOrRequestTile(desc: TileDescriptor) {
-        const key = desc.toString();
-        let tile = this.cache.get(key);
-
-        if (!tile && !this.requestQueue.has(key)) {
-            const request = this.loadTileAsync(desc);
-            this.requestQueue.set(key, request);
-
-            request.then((tile) => {
-                this.cache.set(key, tile);
-            }).catch((error) => {
-                console.error(error);
-            }).finally(() => {
-                this.requestQueue.delete(key);
-            });
-        }
-
-        return tile;
-    }
-
-    public async loadTileAsync(desc: TileDescriptor) {
-        const url = this.getTileUrl(desc.x, desc.y, desc.zoom);
-        const response = await fetch(url);
+    private loader: Loader<ElevationTile, TileDescriptor> = new Loader<ElevationTile, TileDescriptor>(async (response, desc) => {
         const reader = response.body?.getReader();
 
         // Read the decompressed stream, and load the data as a stream of 16-bit integers
@@ -77,14 +53,60 @@ export class ElevationLayer {
         if (x !== 0 || y !== this.resolution)
             throw new Error("Invalid tile data");
 
-        return new ElevationTile(desc, data, this.resolution);
+        return new ElevationTile(desc!, data, this.resolution);
+    });
+
+    constructor(options?: {
+        resolution?: number,
+        minLevel?: number,
+        maxLevel?: number,
+    }) {
+        super();
+        this.resolution = options?.resolution ?? 256;
+        this.minLevel = options?.minLevel ?? 8;
+        this.maxLevel = options?.maxLevel ?? 16;
+
+        this.loader.onDone = (data, meta) => {
+            this.doneHandler(data, meta);
+        };
     }
 
-    private getTileUrl(x: number, y: number, zoom: number) {
-        return this.urlTemplate
-            .replace("{x}", x.toString())
-            .replace("{y}", y.toString())
-            .replace("{z}", zoom.toString())
-            .replace("{resolution}", this.resolution.toString());
+    private doneHandler(data: ElevationTile, desc?: TileDescriptor) {
+        if (!desc)
+            throw new Error("No descriptor - this should never happen");
+
+        console.log("loading texture done", desc.toString());
+        this.cache.set(desc.toString(), {
+            desc,
+            url: this.getTileUrl(desc),
+            data,
+            refCount: 0,
+        });
+
+        for (const listener of this.listeners ?? [])
+            listener({
+                descriptor: desc,
+                data: data,
+            });
+    }
+
+    public request(wishlist: ResourceRequestType[]) {
+        for (let element of wishlist) {
+            while (element.desc.zoom > this.minLevel && element.desc.zoom > this.maxLevel)
+                element.desc = element.desc.getParent()!;
+
+            const url = this.getTileUrl(element.desc);
+
+            // Lower zoom levels have higher priority
+            this.loader.request(url, element.desc, element.priority);
+        }
+
+        this.loader.processQueue();
+    }
+
+    protected abstract getTileUrl(tile: TileDescriptor): string;
+
+    public getBestMatch(desc: TileDescriptor): MatchType<ElevationTile> | undefined {
+        return undefined;
     }
 }

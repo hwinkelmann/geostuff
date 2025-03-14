@@ -34,6 +34,10 @@ export class GenericCache<K, T> {
         return result;
     }
 
+    age() {
+        this.generation++;
+    }
+
     /**
      * Marks a given element as used (as long as it exists in the cache)
      * @param key Key

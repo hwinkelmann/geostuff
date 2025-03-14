@@ -101,35 +101,36 @@ export abstract class Camera {
     }
 
 
-    // // Never got this working correctly, but something that is called once per frame
-    // // is not so very important right now. I'll leave it here for the future.
-    // export function calculateClipPlanes(m: DoubleMatrix) {
-    //     const frustumPlanes: ClipPlane[] = [
-    //         new ClipPlane(m.M14 + m.M11, m.M24 + m.M21, m.M34 + m.M31, m.M44 + m.M41),
-    //         new ClipPlane(m.M14 - m.M11, m.M24 - m.M21, m.M34 - m.M31, m.M44 - m.M41),
-    //         new ClipPlane(m.M14 + m.M12, m.M24 + m.M22, m.M34 + m.M32, m.M44 + m.M42),
-    //         new ClipPlane(m.M14 - m.M12, m.M24 - m.M22, m.M34 - m.M32, m.M44 - m.M42),
-    //         new ClipPlane(m.M14 + m.M13, m.M24 + m.M23, m.M34 + m.M33, m.M44 + m.M43),
-    //         new ClipPlane(m.M14 - m.M13, m.M24 - m.M23, m.M34 - m.M33, m.M44 - m.M43)
-    //     ];
-
-    //     return frustumPlanes;
-    // }
+    // Never got this working correctly, but something that is called once per frame
+    // is not so very important right now. I'll leave it here for the future.
+    /*
+    private calculateClipPlanes(m: DoubleMatrix) {
+        const frustumPlanes: ClipPlane[] = [
+            new ClipPlane(new DoubleVector3(m.M14 + m.M11, m.M24 + m.M21, m.M34 + m.M31), m.M44 + m.M41),
+            new ClipPlane(new DoubleVector3(m.M14 - m.M11, m.M24 - m.M21, m.M34 - m.M31), m.M44 - m.M41),
+            new ClipPlane(new DoubleVector3(m.M14 + m.M12, m.M24 + m.M22, m.M34 + m.M32), m.M44 + m.M42),
+            new ClipPlane(new DoubleVector3(m.M14 - m.M12, m.M24 - m.M22, m.M34 - m.M32), m.M44 - m.M42),
+            new ClipPlane(new DoubleVector3(m.M14 + m.M13, m.M24 + m.M23, m.M34 + m.M33), m.M44 + m.M43),
+            new ClipPlane(new DoubleVector3(m.M14 - m.M13, m.M24 - m.M23, m.M34 - m.M33), m.M44 - m.M43)
+        ];
+        return frustumPlanes;
+    }
+    */
 
     /**
-     * Visibility test for a bounding sphere. Be sure update() is called before!
+     * Visibility test for a bounding sphere. Be sure camera.update() is called before!
      * @param volume Bounding sphere
      * @param clipPlanes Clip planes that make up the view frustum. Calculate these using calculateClipPlanes!
      * @returns true if the volume intersects with the view frustum, false otherwise
      */
     public isBoundingSphereVisible(volume: BoundingSphere) {
-        for (let i = 0; i < this.clipPlanes.length; i++) {
-            const plane = this.clipPlanes[i];
+        for (const plane of this.clipPlanes) {
+            // Get the signed distance from the relative point to the plane
             const distance = plane.getSignedDistance(volume.center);
-            if (distance <= -volume.radius)
+
+            if (distance > volume.radius)
                 return false;
         }
-
         return true;
     }
 }

@@ -151,13 +151,13 @@ export class BoundingBox {
             this.minZ = Math.min(this.minZ, coord.elevation ?? 0);
             this.maxZ = Math.max(this.maxZ, coord.elevation ?? 0);
         } else if (arg1 instanceof DoubleVector3) {
-            const coord = arg1 as DoubleVector3;
-            this.minX = Math.min(this.minX, coord.x);
-            this.maxX = Math.max(this.maxX, coord.x);
-            this.minY = Math.min(this.minY, coord.y);
-            this.maxY = Math.max(this.maxY, coord.y);
-            this.minZ = Math.min(this.minZ, coord.z);
-            this.maxZ = Math.max(this.maxZ, coord.z);
+            const vec = arg1 as DoubleVector3;
+            this.minX = Math.min(this.minX, vec.x);
+            this.maxX = Math.max(this.maxX, vec.x);
+            this.minY = Math.min(this.minY, vec.y);
+            this.maxY = Math.max(this.maxY, vec.y);
+            this.minZ = Math.min(this.minZ, vec.z);
+            this.maxZ = Math.max(this.maxZ, vec.z);
         } else {
             const bbox = arg1 as BoundingBox;
             this.minX = Math.min(this.minX, bbox.minX);

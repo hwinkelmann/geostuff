@@ -9,7 +9,7 @@ export abstract class TextureLayer extends Layer<WebGLTexture> {
     private cache: Map<string, {
         desc: TileDescriptor,
         url: string,
-        texture: WebGLTexture,
+        data: WebGLTexture,
         refCount: number,
     }> = new Map();
 
@@ -54,7 +54,7 @@ export abstract class TextureLayer extends Layer<WebGLTexture> {
         this.cache.set(desc.toString(), {
             desc,
             url: this.getTileUrl(desc),
-            texture,
+            data: texture,
             refCount: 0,
         });
 
@@ -69,7 +69,7 @@ export abstract class TextureLayer extends Layer<WebGLTexture> {
         this.listeners.clear();
 
         for (const key of this.cache.keys())
-            this.context.gl?.deleteTexture(this.cache.get(key)?.texture ?? null);
+            this.context.gl?.deleteTexture(this.cache.get(key)?.data ?? null);
 
         this.cache.clear();
 
@@ -91,7 +91,7 @@ export abstract class TextureLayer extends Layer<WebGLTexture> {
     }
 
     public getCached(desc: TileDescriptor): WebGLTexture | undefined {
-        return this.cache.get(desc.toString())?.texture;
+        return this.cache.get(desc.toString())?.data;
     }
 
     public decreaseRefCount(desc: TileDescriptor) {
@@ -102,7 +102,7 @@ export abstract class TextureLayer extends Layer<WebGLTexture> {
         elem.refCount--;
 
         if (elem.refCount === 0) {
-            this.context.gl?.deleteTexture(elem.texture);
+            this.context.gl?.deleteTexture(elem.data);
             this.cache.delete(desc.toString());
         }
     }
@@ -146,7 +146,7 @@ export abstract class TextureLayer extends Layer<WebGLTexture> {
 
         return {
             descriptor: elem.desc,
-            data: elem.texture,
+            data: elem.data,
         };
     }
 }

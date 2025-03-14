@@ -7,7 +7,7 @@ export class Sphere {
     public colorBuffer: WebGLBuffer;
     public numTriangles: number;
 
-    constructor(protected context: RenderContext, public position: DoubleVector3, private radius: number, tesselation = 10) {
+    constructor(protected context: RenderContext, public position: DoubleVector3, public radius: number, tesselation = 10) {
 
         const vertices: number[] = [];
         const colors: number[] = [];
@@ -77,6 +77,9 @@ export class Sphere {
 
         if (this.indexBuffer)
             context.gl?.deleteBuffer(this.indexBuffer);
+
+        if (this.colorBuffer)
+            context.gl?.deleteBuffer(this.colorBuffer);
     }
 
     public get boundingSphere() {

@@ -1,7 +1,7 @@
 /**
  * Converts a response to a promise of the desired type.
  */
-export type ResponseConverter<T> = (response: Response) => Promise<T>;
+export type ResponseConverter<T, METADATA> = (response: Response, meta: METADATA) => Promise<T>;
 
 export type ResourceRequest<METADATA> = {
     url: string,
@@ -22,7 +22,7 @@ export class Loader<T, METADATA> {
         controller: AbortController
     }[] = [];
 
-    constructor(private onResponse: ResponseConverter<T>, private maxConcurrentRequests = 1) {
+    constructor(private onResponse: ResponseConverter<T, METADATA | undefined>, private maxConcurrentRequests = 1) {
         this.processQueue = this.processQueue.bind(this);
     }
 
@@ -88,8 +88,8 @@ export class Loader<T, METADATA> {
                 }
 
                 // TODO: Remove delay here
-                return new Promise(resolve => setTimeout(resolve, 750))
-                    .then(() => this.onResponse(response))
+                return new Promise(resolve => setTimeout(resolve, 0))
+                    .then(() => this.onResponse(response, next.meta))
                     .then(d => {
                         if (this.onDone)
                             this.onDone(d, next.meta);

@@ -3,9 +3,6 @@ import { Coordinate } from "../geography/Coordinate";
 import { MercatorProjection } from "../geography/MercatorProjection";
 import { Projection } from "../geography/Projection";
 
-/**
- * Tile addressing descriptor
- */
 export class TileDescriptor {
     private static projection: MercatorProjection = new MercatorProjection();
 
@@ -24,10 +21,9 @@ export class TileDescriptor {
      */
     public zoom: number;
 
-    public static fromValues(x: number, y: number, zoom: number): TileDescriptor {
-        return new TileDescriptor(x, y, zoom);
-    }
-
+    /**
+     * Creates a TileDescriptor from a geographic coordinate and zoom level.
+     */
     public static fromCoordinate(coord: Coordinate, zoom: number): TileDescriptor {
         const vec = TileDescriptor.projection.project(coord);
         return new TileDescriptor(
@@ -37,6 +33,9 @@ export class TileDescriptor {
         );
     }
 
+    /**
+     * Creates a clone of the current TileDescriptor.
+     */
     public clone(): TileDescriptor {
         return new TileDescriptor(this.x, this.y, this.zoom);
     }
@@ -47,10 +46,16 @@ export class TileDescriptor {
         this.zoom = zoom ?? 0;
     }
 
+    /**
+     * Gets the width of the tile in terms of the number of tiles at the current zoom level.
+     */
     public get TilesWidth(): number {
         return 2 ** this.zoom;
     }
 
+    /**
+     * Gets the parent tile descriptor, which is one zoom level higher.
+     */
     public getParent(): TileDescriptor | undefined {
         if (this.zoom > 0) {
             return new TileDescriptor(Math.floor(this.x / 2), Math.floor(this.y / 2), this.zoom - 1);
@@ -58,6 +63,9 @@ export class TileDescriptor {
             return undefined;
     }
 
+    /**
+     * Gets the bounding box of the tile in the given projection.
+     */
     public getBounds(projection: Projection): BoundingBox {
         return BoundingBox.fromCoordinates([
             projection.fromDescriptorCoordinate(this.x, this.y, this.zoom),
@@ -65,6 +73,9 @@ export class TileDescriptor {
         ])!;
     }
 
+    /**
+     * Checks if the current tile descriptor is equal to another.
+     */
     public equals(obj: any): boolean {
         if (!(obj instanceof TileDescriptor) || !obj) {
             return false;
@@ -74,6 +85,10 @@ export class TileDescriptor {
         return desc.x === this.x && desc.y === this.y && desc.zoom === this.zoom;
     }
 
+    /**
+     * Returns a list of parent descriptors up to the root. Optionally includes
+     * the current descriptor.
+     */
     public getAllParents(includeSelf = false): TileDescriptor[] {
         const parents: TileDescriptor[] = includeSelf? [this] : [];
         let parent = this.getParent();
@@ -84,6 +99,9 @@ export class TileDescriptor {
         return parents;
     }
 
+    /**
+     * Checks if the current tile descriptor includes another tile descriptor.
+     */
     public includes(other: TileDescriptor): boolean {
         if (this.equals(other))
             return true;
@@ -95,14 +113,23 @@ export class TileDescriptor {
         return other.x >> diff === this.x && other.y >> diff === this.y;
     }
 
+    /**
+     * Checks if the current tile descriptor includes or equals another tile descriptor.
+     */
     public includesOrEquals(other: TileDescriptor): boolean {
         return this.equals(other) || this.includes(other);
     }
 
+    /**
+     * Converts the tile descriptor to a string representation.
+     */
     public toString(): string {
         return `${this.x}, ${this.y}, ${this.zoom}`;
     }
 
+    /**
+     * Generates a hash code for the tile descriptor.
+     */
     public hashCode(): number {
         const prime = 31;
         let result = 1;
@@ -112,10 +139,16 @@ export class TileDescriptor {
         return result;
     }
 
+    /**
+     * Gets the tile stride, which is the number of tiles at the current zoom level.
+     */
     public get tileStride(): number {
         return 1 << this.zoom;
     }
 
+    /**
+     * Gets the quad key for the tile descriptor.
+     */
     public getQuadKey(): string {
         let quadKey = "";
         for (let i = this.zoom; i > 0; i--) {

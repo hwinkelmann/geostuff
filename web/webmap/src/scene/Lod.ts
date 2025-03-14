@@ -1,10 +1,13 @@
 import { BoundingBox } from "../geography/BoundingBox";
+import { Coordinate } from "../geography/Coordinate";
 import { Datum } from "../geography/Datum";
 import { Projection } from "../geography/Projection";
 import { DoubleVector3 } from "../geometry/DoubleVector3";
 import { TileDescriptor } from "../models/TileDescriptor";
+import { TileModel } from "../rendering/renderables/TileModel";
 import { RenderContext } from "../rendering/RenderContext";
 import { deg2Rad } from "../rendering/Utils";
+import { GenericCache } from "../utils/GenericCache";
 import { BoundingSphere } from "./BoundingSphere";
 import { Camera } from "./Camera";
 
@@ -18,29 +21,30 @@ export class Lod {
     constructor(private datum: Datum, private projection: Projection) {
     }
 
-    public performLevelOfDetail(context: RenderContext, camera: Camera, minLevel: number, maxLevel: number): LodDetails[] {
+    public performLevelOfDetail(context: RenderContext, camera: Camera, minLevel: number, maxLevel: number, modelCache: GenericCache<string, TileModel>): LodDetails[] {
         const result: LodDetails[] = [];
-        this.performLevelOfDetailRecursive(context, camera, result, new TileDescriptor(0, 0, 0), minLevel, maxLevel);
+        this.performLevelOfDetailRecursive(context, camera, result, new TileDescriptor(0, 0, 0), minLevel, maxLevel, modelCache);
 
         return result;
     }
 
-    private performLevelOfDetailRecursive(context: RenderContext, camera: Camera, result: LodDetails[], desc: TileDescriptor, minLevel: number, maxLevel: number) {
+    private performLevelOfDetailRecursive(context: RenderContext, camera: Camera, result: LodDetails[], desc: TileDescriptor, minLevel: number, maxLevel: number, modelCache: GenericCache<string, TileModel>) {
         // If the tile is not visible, we can stop here
-        const boundingSphere = this.getApproximateBoundingSphere(desc);
+        const boundingSphere = this.getApproximateBoundingSphere(desc, modelCache);
         if (!camera.isBoundingSphereVisible(boundingSphere)) {
             return;
         }
 
         // Check how big the tile is on the screen
-        const logicalScreenSize = this.getTileScreenSize(context, camera, desc, desc.getBounds(this.projection), boundingSphere);
+        // const approxScreenSize = this.getTileScreenSize(context, camera, desc, desc.getBounds(this.projection), boundingSphere);
+        const approxScreenSize = this.approximateBoundingSphereSize(context, camera, desc, desc.getBounds(this.projection), boundingSphere);
 
-        if (desc.zoom >= minLevel && logicalScreenSize < 2048) {
+        if (desc.zoom >= 3 && approxScreenSize < 256) {
             // If tile resolution is OK or we're at the maximum level, we're done.
             // Also, we need to be at least at the minimum level
             result.push({
                 desc,
-                logicalScreenSize,
+                logicalScreenSize: approxScreenSize,
                 boundingSphere,
             });
             return;
@@ -50,52 +54,74 @@ export class Lod {
         const x = desc.x * 2;
         const y = desc.y * 2;
         const zoom = desc.zoom + 1;
-        this.performLevelOfDetailRecursive(context, camera, result, new TileDescriptor(x, y, zoom), minLevel, maxLevel);
-        this.performLevelOfDetailRecursive(context, camera, result, new TileDescriptor(x + 1, y, zoom), minLevel, maxLevel);
-        this.performLevelOfDetailRecursive(context, camera, result, new TileDescriptor(x, y + 1, zoom), minLevel, maxLevel);
-        this.performLevelOfDetailRecursive(context, camera, result, new TileDescriptor(x + 1, y + 1, zoom), minLevel, maxLevel);
+
+        this.performLevelOfDetailRecursive(context, camera, result, new TileDescriptor(x, y, zoom), minLevel, maxLevel, modelCache);
+        this.performLevelOfDetailRecursive(context, camera, result, new TileDescriptor(x + 1, y, zoom), minLevel, maxLevel, modelCache);
+        this.performLevelOfDetailRecursive(context, camera, result, new TileDescriptor(x, y + 1, zoom), minLevel, maxLevel, modelCache);
+        this.performLevelOfDetailRecursive(context, camera, result, new TileDescriptor(x + 1, y + 1, zoom), minLevel, maxLevel, modelCache);
     }
 
-    private getTileScreenSize(context: RenderContext, camera: Camera, desc: TileDescriptor, boundingBox: BoundingBox, boundingSphere: BoundingSphere): number {
+
+    private approximateBoundingSphereSize(context: RenderContext, camera: Camera, desc: TileDescriptor, boundingBox: BoundingBox, boundingSphere: BoundingSphere): number {
+        // Calculate distance between camera and bounding sphere center
         // Approximation for tile width in meters
         const tileMeters = (this.datum.meridianLength / desc.tileStride) * Math.cos(deg2Rad(boundingBox.centerCoordinate.latitude));
 
         // Calculate distance between camera and tile
-        const distCameraVolume = Math.max(
-            boundingSphere.center.distanceTo(camera.position) - boundingSphere.radius,
-            0.1
-        );
+        let distCameraVolume = (boundingSphere.center.clone().subtract(camera.getCameraPosition())).length() - boundingSphere.radius;
 
-        // Calculate the width of the tile in screen space
+        if (distCameraVolume < 0)
+            distCameraVolume = 0.1;
+
+        // Project tile with
         const matrix = camera.projectionMatrix;
-        const pt = new DoubleVector3(tileMeters, 0, -distCameraVolume);
-        const pixels = pt.transform(matrix).x * context.canvas.width / 2;
-        
-        return pixels;
+        const x = matrix.M11 * tileMeters + matrix.M31 * distCameraVolume + matrix.M41;
+        const w = matrix.M14 * tileMeters - matrix.M34 * distCameraVolume + matrix.M44;
+
+        const screenSpace = (w > 0) ? (x / w) : 0;
+        return screenSpace * context.canvas.width / 2;
     }
 
-    private getApproximateBoundingSphere(desc: TileDescriptor): BoundingSphere {
+    public getApproximateBoundingSphere(desc: TileDescriptor, modelCache: GenericCache<string, TileModel>): BoundingSphere {
         const boundingBox = desc.getBounds(this.projection);
 
         // Get the best approximation of a bounding sphere that we have
         let boundingSphere: BoundingSphere | undefined = undefined;
 
-        // TODO: If the model is already loaded, use it's bounding sphere
+        // If the model is already loaded, use it's bounding sphere
+        if (modelCache.peek(desc.toString()))
+            return modelCache.peek(desc.toString())!.boundingSphere;
+
         // TODO: If we have elevation data, use that to approximate the bounding sphere
         // TODO: If we have a neighboring tile, use that to approximate the bounding sphere
         // TODO: Adjust boundingBox's elevation to contain min/max elevation. The following
         // code assumes that this happened.
         // We have no idea, so let's guesstimate
-        if (!boundingSphere) {
-            const center = this.datum.toCarthesian(boundingBox.centerCoordinate);
+        const numSamples = 25;
+        const points: DoubleVector3[] = [];
+        for (let z = 0; z < 2; z++)
+            for (let i = 0; i <= numSamples; i++) {
+                for (let j = 0; j <= numSamples; j++) {
+                    const coord = new Coordinate(
+                        boundingBox.minLatitude + (boundingBox.maxLatitude - boundingBox.minLatitude) * i / numSamples,
+                        boundingBox.minLongitude + (boundingBox.maxLongitude - boundingBox.minLongitude) * j / numSamples,
+                        (z === 0) ? boundingBox.minElevation : boundingBox.maxElevation,
+                    );
+                    points.push(this.datum.toCarthesian(coord));
+                }
+            }
 
-            const maxDistanceFromCenter = Math.max(
-                center.distanceTo(this.datum.toCarthesian(boundingBox.minCoordinate)),
-                center.distanceTo(this.datum.toCarthesian(boundingBox.maxCoordinate))
-            );
+        const bbox = BoundingBox.fromVectors(points)!;
+        const center = bbox.centerVector;
 
-            boundingSphere = new BoundingSphere(center, maxDistanceFromCenter);
+        let maxDistanceFromCenter = 0;
+        for (const point of points) {
+            const distance = point.distanceTo(center);
+            if (distance > maxDistanceFromCenter)
+                maxDistanceFromCenter = distance;
         }
+
+        boundingSphere = new BoundingSphere(center, maxDistanceFromCenter * 1.1);
 
         return boundingSphere;
     }
