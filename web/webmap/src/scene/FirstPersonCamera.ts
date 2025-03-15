@@ -13,7 +13,7 @@ export class FirstPersonCamera extends Camera {
         this.position = new DoubleVector3(0, 0, 0);
     }
     getCameraPosition() {
-        return this.position;
+        return this.position.clone();
     }
     getViewMatrix() {
         // return DoubleMatrix.getLookAtMatrixRH(this.position, this.lookAt, this.up);

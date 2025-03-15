@@ -1,5 +1,6 @@
 import { DoubleMatrix } from "../geometry/DoubleMatrix";
 import { DoubleVector3 } from "../geometry/DoubleVector3";
+import { Ray3 } from "../geometry/Ray3";
 import { deg2Rad } from "../rendering/Utils";
 import { BoundingSphere } from "./BoundingSphere";
 import { ClipPlane } from "./ClipPlane";
@@ -21,6 +22,16 @@ export abstract class Camera {
      * View matrix. Use only after calling update()
      */
     public viewMatrix: DoubleMatrix = DoubleMatrix.Identity;
+
+    /**
+     * Inverse view matrix. Use only after calling update()
+     */
+    public invViewMatrix: DoubleMatrix = DoubleMatrix.Identity;
+
+    /**
+     * Inverse projection matrix. Use only after calling update()
+     **/
+    public invProjectionMatrix: DoubleMatrix = DoubleMatrix.Identity;
 
     /**
      * Clip planes that make up the view frustum. Use only after calling update()
@@ -56,7 +67,33 @@ export abstract class Camera {
         this.viewMatrix = this.getViewMatrix();
 
         this.viewProjectionMatrix = DoubleMatrix.multiply(this.viewMatrix, this.projectionMatrix);
+
+        this.invViewMatrix = this.viewMatrix.clone().invert();
+        this.invProjectionMatrix = this.projectionMatrix.clone().invert();
+
         this.clipPlanes = this.constructClipPlanes();
+    }
+
+    /**
+     * Calculates the ray that goes through the given pixel
+     * @param x Pixel x-coordinate
+     * @param y Pixel y-coordinate
+     * @returns Ray that goes through the pixel
+     */
+    public getRayForPixel(x: number, y: number): Ray3 {
+        const width = this.canvas.current?.width ?? 1;
+        const height = this.canvas.current?.height ?? 1;
+
+        // Normalized device coordinates go from -1/-1 (bottom left) to 1/1 (top right)
+        const xNDC = (2 * x) / width - 1;
+        const yNDC = 1 - (2 * y) / height;
+
+        const viewportVector = new DoubleVector3(xNDC, yNDC, -1);
+
+        const direction = this.invProjectionMatrix.multiplyMatrixVector(viewportVector).normalize();
+        direction.transform(this.invViewMatrix);
+
+        return new Ray3(this.getCameraPosition(), direction);
     }
 
     /**
