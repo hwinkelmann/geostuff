@@ -9,6 +9,6 @@ export class AsterLayer extends ElevationLayer {
     }
 
     protected getTileUrl(tile: TileDescriptor): string {
-        return `http://localhost:5173/api/elevation/tile?x=${x}&y=${y}&z=${tile.zoom}&resolution=256`;
+        return `http://localhost:5173/api/elevation/tile?x=${tile.x}&y=${tile.y}&z=${tile.zoom}&resolution=256`;
     }
 }

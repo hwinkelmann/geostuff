@@ -2,6 +2,7 @@ import { Datum } from "../geography/Datum";
 import { Projection } from "../geography/Projection";
 import { DoubleMatrix } from "../geometry/DoubleMatrix";
 import { DoubleVector3 } from "../geometry/DoubleVector3";
+import { Ray3 } from "../geometry/Ray3";
 import { TileDescriptor } from "../models/TileDescriptor";
 import { Camera } from "../scene/Camera";
 import { ElevationLayer } from "../scene/layers/dem/ElevationLayer";
@@ -19,6 +20,12 @@ export class Scene {
     public lod: Lod;
 
     public modelCache: GenericCache<string, TileModel>;
+
+    /**
+     * The tiles that are currently visible. This list is e.g. used when the intersection
+     * of a ray with the scene is requested.
+     */
+    private visibleTiles: TileDescriptor[] = [];
 
     constructor(
         private context: RenderContext,
@@ -50,6 +57,7 @@ export class Scene {
         this.fetchTextures(camera, wishlist);
 
         const models = this.getBestModels(wishlistDescriptors);
+        this.visibleTiles = models.map(m => m.descriptor);
 
         if (!camera || !this.context.gl || !this.context.tileProgram)
             return;
@@ -124,6 +132,63 @@ export class Scene {
         }
 
         this.textureLayer?.request(texturesToFetch);
+    }
+
+
+    public getIntersection(ray: Ray3) {
+        // List of candidate models that the ray could intersect with.
+        const candidates: { distance: number, model: TileModel }[] = [];
+
+        for (const desc of this.visibleTiles) {
+            const model = this.modelCache.peek(desc.toString());
+            if (!model)
+                continue;
+
+            const intersections = ray.intersectSphere(model.boundingSphere.center, model.boundingSphere.radius);
+
+            if (intersections.length === 0)
+                // Ray doesn't intersect the bounding sphere, so it doesn't intersect the model.
+                // We can safely skip this one.
+                continue;
+
+            const distance = Math.min(...intersections.map(i => ray.origin.distanceTo(i)));
+
+            candidates.push({ distance, model });
+        }
+
+        candidates.sort((a, b) => a.distance - b.distance);
+
+        let closestIntersection: {
+            distance: number,
+            model: TileModel,
+            intersection: DoubleVector3,
+        } | undefined = undefined;
+
+        for (const intersection of candidates) {
+            if (closestIntersection && intersection.distance > closestIntersection.distance)
+                // The minimum distance to the bounding sphere is larger than the
+                // minimum distance to the closest intersection so far. 
+                // Any intersection with the model that this bounding sphere represents
+                // would be further away than the closest intersection we've found so far.
+                // As we've sorted the intersections by distance, we can safely stop here.
+                break;
+
+            // Calculate model intersection and check if it's closer.
+            const model = intersection.model!;
+            const modelIntersection = model.intersectRay(ray);
+
+            if (!modelIntersection)
+                continue;
+
+            if (!closestIntersection || modelIntersection.distance < closestIntersection.distance)
+                closestIntersection = {
+                    model,
+                    distance: modelIntersection.distance,
+                    intersection: modelIntersection.point,
+                };
+        }
+
+        return closestIntersection;
     }
 
 

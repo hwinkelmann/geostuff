@@ -75,10 +75,10 @@ export abstract class Camera {
     }
 
     /**
-     * Calculates the ray that goes through the given pixel
+     * Calculates the ray that goes through the given pixel. The ray is in world space.
      * @param x Pixel x-coordinate
      * @param y Pixel y-coordinate
-     * @returns Ray that goes through the pixel
+     * @returns World-space ray that goes through the pixel
      */
     public getRayForPixel(x: number, y: number): Ray3 {
         const width = this.canvas.current?.width ?? 1;

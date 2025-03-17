@@ -3,10 +3,12 @@ import { Coordinate } from "../../geography/Coordinate";
 import { Datum } from "../../geography/Datum";
 import { Projection } from "../../geography/Projection";
 import { DoubleVector3 } from "../../geometry/DoubleVector3";
+import { Ray3 } from "../../geometry/Ray3";
 import { TileDescriptor } from "../../models/TileDescriptor";
+import { IntersectableModel } from "../IntersectableModel";
 import { RenderContext } from "../RenderContext";
 
-export class TileModel {
+export class TileModel extends IntersectableModel {
     // WebGL index buffer
     public triCount: number = 0;
 
@@ -31,6 +33,7 @@ export class TileModel {
         protected datum: Datum,
         protected projection: Projection,
     ) {
+        super();
         this.init(context);
     }
 
@@ -56,7 +59,9 @@ export class TileModel {
             throw new Error("No GL context");
 
         // Create index-, vertex- and texture coordinate buffers
-        this.indexBuffer = TileModel.buildIndexBuffer(gl, this.tesselationSteps);
+        const ib = TileModel.buildIndexBuffer(gl, this.tesselationSteps);
+        this.indexBuffer = ib.indexBuffer;
+        this.indices = ib.indices;
 
         const bounds = BoundingBox.fromCoordinates([
             this.projection.fromDescriptorCoordinate(this.descriptor.x, this.descriptor.y, this.descriptor.zoom),
@@ -67,6 +72,7 @@ export class TileModel {
         const vb = TileModel.buildVertexBuffer(gl, bounds, this.tesselationSteps, this.datum);
 
         this.vertexBuffer = vb.vertexBuffer;
+        this.vertices = vb.vertices;
         this.boundingSphere = vb.boundingSphere;
 
         this.textureBuffer = TileModel.buildTextureBuffer(gl, this.tesselationSteps, this.descriptor, this.textureDescriptor);
@@ -136,15 +142,18 @@ export class TileModel {
         const vertexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
 
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices.map(v => [
-            // We're subtracting the centroid from each vertex. This makes
-            // vertex positions in the view model feasible for single precision floats.
-            v.x - boundingSphere.center.x,
-            v.y - boundingSphere.center.y,
-            v.z - boundingSphere.center.z
-        ]).flat()), gl.STATIC_DRAW);
+        // We're subtracting the centroid from each vertex. This makes
+        // vertex positions in the view model feasible for single precision floats.
+        vertices.forEach(v => {
+            v.x -= boundingSphere.center.x;
+            v.y -= boundingSphere.center.y;
+            v.z -= boundingSphere.center.z;
+        });
+
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices.map(v => [v.x, v.y, v.z]).flat()), gl.STATIC_DRAW);
 
         return {
+            vertices,
             vertexBuffer,
             boundingSphere
         }
@@ -170,7 +179,25 @@ export class TileModel {
 
         console.assert(indices.length === (tesselationSteps + 1) * (tesselationSteps + 1) * 6, "Invalid index buffer size");
 
-        return indexBuffer;
+        return {
+            indices,
+            indexBuffer,
+        };
+    }
+
+    /**
+     * Calculates the intersection of a ray with the model
+     * @param ray Ray in world space
+     * @returns 
+     */
+    public intersectRay(ray: Ray3) {
+        // Convert ray into model space, which is just shifted by the bounding sphere center
+        const modelSpaceRay = new Ray3(
+            ray.origin.clone().subtract(this.boundingSphere.center),
+            ray.direction,
+        );
+
+        return this.intersect(modelSpaceRay);
     }
 
     private static xy(x: number, y: number, tesselationSteps: number) {

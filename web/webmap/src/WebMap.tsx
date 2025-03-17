@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./WebMap.css";
-import { buildProgram, compileShader, deg2Rad, resizeCanvasToDisplaySize } from "./rendering/Utils";
+import { buildProgram, compileShader, deg2Rad, resizeCanvasToDisplaySize, setBuffers, setMatrices } from "./rendering/Utils";
 import { RenderContext } from "./rendering/RenderContext";
 import { Coordinate } from "./geography/Coordinate";
 import { Datum } from "./geography/Datum";
@@ -14,6 +14,7 @@ import { DoubleVector3 } from "./geometry/DoubleVector3";
 import { KeyTracker } from "./KeyTracker";
 import { Sphere } from "./rendering/renderables/Sphere";
 import { fragmentShader, vertexShader } from "./shaders/Gouraud";
+import { DoubleMatrix } from "./geometry/DoubleMatrix";
 
 export function WebMap() {
     // Get a reference to the canvas element, create a webgl context and draw a triangle
@@ -74,9 +75,9 @@ export function WebMap() {
         ref.current.textureLayer = textureLayer;
 
         // ref.current.camera = new CoordinateLookAtCamera(deg2Rad(40), canvasRef, 10, 60000000, new Coordinate(48.286191, 8.207323, 500), new Coordinate(48.285449, 8.143137, 229));
-        ref.current.camera = new FirstPersonCamera(deg2Rad(40), canvasRef, 1, 1000, 20000000);
+        ref.current.camera = new FirstPersonCamera(deg2Rad(40), canvasRef, 1, 100, 22000000);
 
-        ref.current.camera.setPositionByCoordinate(new Coordinate(0, 0, 600000));
+        ref.current.camera.setPositionByCoordinate(new Coordinate(0, 0, 18000000));
         ref.current.camera.setLookAtByCoordinate(new Coordinate(0.1, 0, 0));
 
         // ref.current.camera?.setPosition(new Coordinate(0, 0, 6000000));
@@ -90,7 +91,7 @@ export function WebMap() {
             mercatorProjection,
             textureLayer,
             undefined,
-            Math.max(textureLayer.minLevel ?? 2, 2),
+            Math.max(textureLayer.minLevel ?? 1, 1),
             textureLayer.maxLevel ?? 10,
             128)
         // ref.current.elevationLayer = new ElevationLayer(context!);
@@ -111,7 +112,7 @@ export function WebMap() {
         };
     }, [context]);
 
-    return <canvas ref={canvasRef} className="webmap" />;
+    return <canvas ref={canvasRef} onClick={onClick} className="webmap" />;
 
     function drawScene(context: RenderContext) {
         if (!ref.current || !context || !context.gl)
@@ -129,7 +130,7 @@ export function WebMap() {
         const speed = 100000;
         ref.current.camera?.move(new DoubleVector3(x, 0, y).multiply(speed));
         const delta = kt.getDragDelta();
-        ref.current.camera?.rotate(delta.x * -0.0005, delta.y * -0.0005, 0);
+        ref.current.camera?.rotate(delta.x * -0.0005, delta.y * -0.0005);
 
         ref.current.camera?.update();
 
@@ -138,6 +139,72 @@ export function WebMap() {
 
         ref.current.scene?.render(ref.current.camera!);
 
+        renderDebugSpheres(context);
+
         ref.current.animationFrame = requestAnimationFrame(() => drawScene(context!));
+    }
+
+    function renderDebugSpheres(context: RenderContext) {
+        if (!context || !context.gl || !dbg.current.program || !dbg.current.spheres.length)
+            return;
+
+        context.gl.useProgram(dbg.current.program);
+        
+        for (const sphere of dbg.current.spheres) {
+            setBuffers(context, dbg.current.program, {
+                vertexBuffer: sphere.vertexBuffer,
+                indexBuffer: sphere.indexBuffer,
+                colorBuffer: sphere.colorBuffer,
+            });
+
+            setMatrices(context, dbg.current.program, {
+                projectionMatrix: ref.current.camera?.getProjectionMatrix(),
+                modelMatrix: DoubleMatrix.Identity,
+                viewMatrix: ref.current.camera?.getViewMatrix(),
+            });
+
+            context.gl.drawElements(context.gl.TRIANGLES, sphere.numTriangles * 3, context.gl.UNSIGNED_SHORT, 0);
+        }
+
+    }
+
+    function onClick(e: React.MouseEvent<HTMLCanvasElement, MouseEvent>) {
+        if (!ref.current || !context || !context.gl)
+            return;
+
+        const { x, y } = getScreenCoordinates(e);
+        const ray = ref.current.camera?.getRayForPixel(x, y);
+        if (!ray)
+            return;
+
+        console.log("intersection is ", ref.current.scene?.getIntersection(ray)?.model.descriptor.toString());
+    }
+
+    // function onMouseDown(e: React.MouseEvent<HTMLCanvasElement, MouseEvent>) {
+    //     if (!ref.current || !context || !context.gl)
+    //         return;
+
+    //     const { x, y } = getScreenCoordinates(e);
+
+    //     const ray = ref.current.camera?.getRayForPixel(x, y);
+    //     if (!ray)
+    //         return;
+
+    //     const pt = ray.getPointAt(3000);
+
+    //     const sphere = new Sphere(context, pt, 100);
+    //     dbg.current.spheres.push(sphere);
+
+    //     console.log("pushed sphere", ray.direction.x.toFixed(4), ray.direction.y.toFixed(4), ray.direction.z.toFixed(4));
+    // }
+
+    function getScreenCoordinates(e: React.MouseEvent<HTMLCanvasElement, MouseEvent>) {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        const scaleX = canvasRef.current?.width! / rect!.width;
+        const scaleY = canvasRef.current?.height! / rect!.height;
+        const x = (e.clientX - rect!.left) * scaleX;
+        const y = (e.clientY - rect!.top) * scaleY;
+
+        return { x, y };
     }
 }

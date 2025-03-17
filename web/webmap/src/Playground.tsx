@@ -150,7 +150,7 @@ export function Playground() {
         ref.current.camera?.move(new DoubleVector3(x, z, y).multiply(speed));
         const delta = kt.getDragDelta();
 
-        ref.current.camera?.rotate(delta.x * -0.0005, delta.y * -0.0005, 0);
+        ref.current.camera?.rotate(delta.x * -0.0005, delta.y * -0.0005);
 
         ref.current.camera?.update();
 
@@ -210,7 +210,7 @@ export function Playground() {
                 numVisible++;
             else
                 numInvisible++;
-            
+
             context.gl?.drawElements(context.gl.TRIANGLES, s.numTriangles * 3, context.gl.UNSIGNED_SHORT, 0);
         }
 

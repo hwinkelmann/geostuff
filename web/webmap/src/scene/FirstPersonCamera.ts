@@ -40,7 +40,7 @@ export class FirstPersonCamera extends Camera {
         this.position = this.position.clone().add(front).add(right).add(up);
     }
 
-    rotate(x: number, y: number, z: number) {
+    rotate(x: number, y: number) {
         const right = this.rotation.getRightVector();
         const up = this.rotation.getUpVector();
 
