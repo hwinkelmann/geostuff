@@ -70,7 +70,7 @@ export class GenericCache<K, T> {
      * Removes the least used elements from the cache
      */
     private preempt() {
-        const numElementsToRemove = Math.max(1, Math.floor(this.maxCacheSize * 0.75));
+        const numElementsToRemove = Math.max(1, Math.floor(this.maxCacheSize * 0.9));
 
         for (let i = 0; i < numElementsToRemove && this.preemptElement(); i++) {
             // Intentionally empty

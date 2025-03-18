@@ -92,8 +92,7 @@ export function WebMap() {
             textureLayer,
             undefined,
             Math.max(textureLayer.minLevel ?? 1, 1),
-            textureLayer.maxLevel ?? 10,
-            128)
+            textureLayer.maxLevel ?? 10)
         // ref.current.elevationLayer = new ElevationLayer(context!);
 
         return () => {
@@ -131,8 +130,6 @@ export function WebMap() {
         const latLon = Datum.WGS84.fromCarthesian(ecefPosition);
 
         const speed = Math.max(10, (latLon.elevation ?? 10) / 300);
-
-        console.log(speed);
 
         ref.current.camera?.move(new DoubleVector3(x, 0, y).multiply(speed));
         const delta = kt.getDragDelta();
