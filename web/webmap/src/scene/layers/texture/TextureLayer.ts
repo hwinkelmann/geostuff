@@ -41,8 +41,8 @@ export abstract class TextureLayer extends Layer<WebGLTexture> {
 
         this.doneHandler.bind(this);
 
-        this.loader.onDone = (data, meta) => {
-            this.doneHandler(data, meta);
+        this.loader.onDone = (resource) => {
+            this.doneHandler(resource.data, resource.descriptor);
         };
     }
 
@@ -84,8 +84,14 @@ export abstract class TextureLayer extends Layer<WebGLTexture> {
             const url = this.getTileUrl(element.desc);
 
             // Lower zoom levels have higher priority
-            this.loader.request(url, element.desc, element.priority);
+            this.loader.request({
+                descriptor: element.desc,
+                priority: element.priority,
+                url, 
+            });
         }
+
+        this.loader.prune(wishlist.map(w => w.desc));
 
         this.loader.processQueue();
     }

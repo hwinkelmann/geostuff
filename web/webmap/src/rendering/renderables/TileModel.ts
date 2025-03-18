@@ -16,6 +16,8 @@ export class TileModel extends IntersectableModel {
     public vertexBuffer: WebGLBuffer | undefined = undefined;
     public textureBuffer: WebGLBuffer | undefined = undefined;
 
+    public color: [number, number, number] = [1, 1, 1];
+
     public boundingSphere: {
         center: DoubleVector3,
         radius: number,

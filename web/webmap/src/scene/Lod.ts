@@ -14,7 +14,7 @@ import { Camera } from "./Camera";
 export type LodDetails = {
     desc: TileDescriptor;
     boundingSphere: BoundingSphere;
-    logicalScreenSize: number;
+    approximatedScreenSize: number;
 };
 
 export class Lod {
@@ -39,12 +39,12 @@ export class Lod {
         // const approxScreenSize = this.getTileScreenSize(context, camera, desc, desc.getBounds(this.projection), boundingSphere);
         const approxScreenSize = this.approximateBoundingSphereSize(context, camera, desc, desc.getBounds(this.projection), boundingSphere);
 
-        if (desc.zoom >= 3 && approxScreenSize < 256) {
+        if (approxScreenSize < 720) {
             // If tile resolution is OK or we're at the maximum level, we're done.
             // Also, we need to be at least at the minimum level
             result.push({
                 desc,
-                logicalScreenSize: approxScreenSize,
+                approximatedScreenSize: approxScreenSize,
                 boundingSphere,
             });
             return;
@@ -61,25 +61,32 @@ export class Lod {
         this.performLevelOfDetailRecursive(context, camera, result, new TileDescriptor(x + 1, y + 1, zoom), minLevel, maxLevel, modelCache);
     }
 
-
+    /**
+     * Approximates the size of a bounding sphere on the screen.
+     * @param desc TileDescriptor
+     * @param boundingBox Map coordinate bounding box
+     * @param boundingSphere Bounding sphere in ECEF coordinates
+     * @returns Number of pixels that the bounding sphere would occupy on the screen
+     */
     private approximateBoundingSphereSize(context: RenderContext, camera: Camera, desc: TileDescriptor, boundingBox: BoundingBox, boundingSphere: BoundingSphere): number {
         // Calculate distance between camera and bounding sphere center
         // Approximation for tile width in meters
         const tileMeters = (this.datum.meridianLength / desc.tileStride) * Math.cos(deg2Rad(boundingBox.centerCoordinate.latitude));
 
         // Calculate distance between camera and tile
-        let distCameraVolume = (boundingSphere.center.clone().subtract(camera.getCameraPosition())).length() - boundingSphere.radius;
+        let distCameraVolume = (boundingSphere.center.clone().subtract(camera.getCameraPosition())).length();
 
         if (distCameraVolume < 0)
             distCameraVolume = 0.1;
 
         // Project tile with
-        const matrix = camera.projectionMatrix;
-        const x = matrix.M11 * tileMeters + matrix.M31 * distCameraVolume + matrix.M41;
-        const w = matrix.M14 * tileMeters - matrix.M34 * distCameraVolume + matrix.M44;
+        const projected = camera.projectionMatrix.multiplyMatrixVector(new DoubleVector3(
+            tileMeters,
+            0,
+            -distCameraVolume,
+        ));
 
-        const screenSpace = (w > 0) ? (x / w) : 0;
-        return screenSpace * context.canvas.width / 2;
+        return projected.x * context.canvas.width / 2;
     }
 
     public getApproximateBoundingSphere(desc: TileDescriptor, modelCache: GenericCache<string, TileModel>): BoundingSphere {

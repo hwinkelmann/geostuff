@@ -1,3 +1,5 @@
+import { TileDescriptor } from "../models/TileDescriptor";
+
 /**
  * Converts a response to a promise of the desired type.
  */
@@ -6,18 +8,22 @@ export type ResponseConverter<T, METADATA> = (response: Response, meta: METADATA
 export type ResourceRequest<METADATA> = {
     url: string,
     priority: number,
-    meta: METADATA | undefined,
+    descriptor: TileDescriptor,
+    meta?: METADATA | undefined,
 };
 
 export class Loader<T, METADATA> {
-    public onDone?: (data: T, meta: METADATA | undefined) => void;
-    public onError?: (url: string) => void;
+    public onDone?: (data: ResourceRequest<METADATA> & {
+        data: T,
+    }) => void;
+
+    // TODO: Attach error object
+    public onError?: (data: ResourceRequest<METADATA>) => void;
 
     private queue: ResourceRequest<METADATA>[] = [];
 
     private ongoingRequests: {
-        url: string,
-        meta: METADATA | undefined,
+        request: ResourceRequest<METADATA>,
         promise: Promise<void>,
         controller: AbortController
     }[] = [];
@@ -26,28 +32,36 @@ export class Loader<T, METADATA> {
         this.processQueue = this.processQueue.bind(this);
     }
 
-    public isRequested(url: string) {
-        return this.queue.some(q => q.url === url) || this.ongoingRequests.some(o => o.url === url);
-    }
-
     public dispose() {
         this.queue = [];
         for (const request of this.ongoingRequests) {
-            request.controller.abort();
             request.promise.finally(() => { });
+            request.controller.abort();
         }
     }
 
     /**
      * Cancels a specific request
-     * @param url Resource URL to cancel
+     * @param desc The descriptor of the request to cancel
      */
-    public cancel(url: string) {
-        const request = this.ongoingRequests.find(r => r.url === url);
+    public cancel(desc: TileDescriptor) {
+        const request = this.ongoingRequests.find(r => r.request.descriptor.equals(desc));
         if (request) {
             request.controller.abort();
         }
-        this.queue = this.queue.filter(q => q.url !== url);
+        this.queue = this.queue.filter(q => q.descriptor.equals(desc));
+    }
+
+    /**
+     * Dequeues all requests that are not included in the wishlist or are parents of something in it.
+     */
+    public prune(wishlist: TileDescriptor[]) {
+        this.queue = this.queue.filter(q => wishlist.some(w => q.descriptor.includes(w)));
+
+        const requestsToCancel = this.ongoingRequests.filter(o => !wishlist.some(w => o.request.descriptor.includes(w)));
+        this.ongoingRequests = this.ongoingRequests.filter(o => wishlist.some(w => o.request.descriptor.includes(w)));
+        for (const request of requestsToCancel)
+            request.controller.abort();
     }
 
     /**
@@ -57,24 +71,27 @@ export class Loader<T, METADATA> {
      * @param meta user-defined metadata. Could be anything or undefined. The loader doesn't care.
      * @returns 
      */
-    public request(url: string, meta: METADATA, priority: number = 0) {
-        if (this.ongoingRequests.some(o => o.url === url))
+    public request(request: ResourceRequest<METADATA>) {
+        if (this.ongoingRequests.some(o => o.request.descriptor.equals(request.descriptor)))
             // Already loading, ignore
             return;
 
-        const existing = this.queue.find(q => q.url === url);
+        const existing = this.queue.find(q => q.descriptor.equals(request.descriptor));
         if (existing) {
-            existing.priority = Math.max(existing.priority, priority);
+            existing.priority = Math.max(existing.priority, request.priority);
+            existing.meta = request.meta;
+            existing.url = request.url;
             return;
         }
 
-        this.queue.push({ url, priority, meta });
+        this.queue.push(request);
     }
 
     public processQueue() {
         if (this.ongoingRequests.length >= this.maxConcurrentRequests)
             return;
 
+        // Pick request with highest priority
         const next = this.queue.sort((a, b) => a.priority - b.priority).pop();
         if (!next)
             return;
@@ -83,7 +100,7 @@ export class Loader<T, METADATA> {
         const promise = fetch(next.url, { signal: controller.signal })
             .then(response => {
                 if (!response.ok) {
-                    this.onError?.(next!.url);
+                    this.onError?.(next);
                     return;
                 }
 
@@ -92,7 +109,10 @@ export class Loader<T, METADATA> {
                     .then(() => this.onResponse(response, next.meta))
                     .then(d => {
                         if (this.onDone)
-                            this.onDone(d, next.meta);
+                            this.onDone({
+                                ...next,
+                                data: d,
+                            });
                     });
             })
             .catch(error => {
@@ -104,11 +124,16 @@ export class Loader<T, METADATA> {
                 throw error;
             });
 
-        this.queue = this.queue.filter(q => q.url !== next.url);
-        this.ongoingRequests.push({ url: next.url, promise, controller, meta: next.meta });
+        // Move request to ongoing
+        this.queue = this.queue.filter(q => !q.descriptor.equals(next.descriptor));
+        this.ongoingRequests.push({
+            request: next,
+            promise,
+            controller,
+        });
 
         promise.finally(() => {
-            this.ongoingRequests = this.ongoingRequests.filter(o => o.url !== next.url);
+            this.ongoingRequests = this.ongoingRequests.filter(o => !o.request.descriptor.equals(next.descriptor));
             this.processQueue();
         });
     }
