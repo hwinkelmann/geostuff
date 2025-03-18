@@ -19,25 +19,11 @@ export const fragmentShaderSource = `#version 300 es
     
     in vec2 vTextureCoordinate;
     uniform sampler2D uSampler;
+    uniform vec3 color;
     
     out vec4 fragColor;
 
-    vec3 colors[6] = vec3[](
-        vec3(1.0, 0.0, 0.0),
-        vec3(0.0, 1.0, 0.0),
-        vec3(0.0, 0.0, 1.0),
-        vec3(1.0, 1.0, 0.0),
-        vec3(0.0, 1.0, 1.0),
-        vec3(1.0, 0.0, 1.0)
-    );
-
     void main(void) {
-        int x = int(vTextureCoordinate.x);
-        int y = int(vTextureCoordinate.y);
-
-        int index = x + y * 3;
-
-        // fragColor = vec4(colors[index % 6], 1.0);
-        fragColor = texture(uSampler, vTextureCoordinate);
+        fragColor = texture(uSampler, vTextureCoordinate) * vec4(color, 1.0);
     }
 `;

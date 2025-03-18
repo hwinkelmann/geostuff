@@ -67,6 +67,8 @@ export class Scene {
                 vertexBuffer: model.vertexBuffer!,
                 textureBuffer: model.textureBuffer!,
                 indexBuffer: model.indexBuffer,
+            }, {
+                color: model.color,
             }, model.texture, model.triCount);
     }
 
@@ -252,6 +254,8 @@ export class Scene {
         textureBuffer?: WebGLBuffer,
         colorBuffer?: WebGLBuffer,
         indexBuffer?: WebGLBuffer,
+    }, uniforms: {
+        color?: [number, number, number],
     },
         texture: WebGLTexture | undefined,
         triCount: number) {
@@ -289,6 +293,7 @@ export class Scene {
             colorBuffer: buffers?.colorBuffer,
             textureCoordBuffer: buffers?.textureBuffer,
             texture,
+            color: uniforms.color,
         });
 
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
