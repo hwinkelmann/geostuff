@@ -126,11 +126,19 @@ export function WebMap() {
         const kt = ref.current.keyTracker!;
         const y = (kt.isKeyDown("w") ? -1 : 0) + (kt.isKeyDown("s") ? 1 : 0);
         const x = (kt.isKeyDown("d") ? 1 : 0) + (kt.isKeyDown("a") ? -1 : 0);
-        
-        const speed = 100000;
+
+        const ecefPosition = ref.current.camera!.position;
+        const latLon = Datum.WGS84.fromCarthesian(ecefPosition);
+
+        const speed = Math.max(10, (latLon.elevation ?? 10) / 300);
+
+        console.log(speed);
+
         ref.current.camera?.move(new DoubleVector3(x, 0, y).multiply(speed));
         const delta = kt.getDragDelta();
         ref.current.camera?.rotate(delta.x * -0.0005, delta.y * -0.0005);
+
+        ref.current.camera!.far = ecefPosition.length() ?? 22000000;
 
         ref.current.camera?.update();
 
@@ -177,7 +185,17 @@ export function WebMap() {
         if (!ray)
             return;
 
-        console.log("intersection is ", ref.current.scene?.getIntersection(ray)?.model.descriptor.toString());
+        const intersection = ref.current.scene?.getIntersection(ray);
+        if (!intersection)
+            return;
+
+        const isSelected = intersection.model.color[0] > 1;
+        if (isSelected)
+            intersection.model.color = [1, 1, 1];
+        else
+            intersection.model.color = [2, 2, 2];
+        
+        console.log("intersection is ", intersection?.model.descriptor.toString());
     }
 
     // function onMouseDown(e: React.MouseEvent<HTMLCanvasElement, MouseEvent>) {
