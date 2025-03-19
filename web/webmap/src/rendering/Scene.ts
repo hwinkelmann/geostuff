@@ -222,14 +222,18 @@ export class Scene {
 
             if (updateModel) {
                 const tile = new TileModel(this.context, bestTextureDescriptor, desc, this.textureLayer?.getCached(bestTextureDescriptor), tesselationSteps, this.datum, this.projection);
+                if (!bestModel.descriptor.equals(desc))
+                    this.modelCache.remove(bestModel.descriptor.toString());
+
                 this.modelCache.set(desc.toString(), tile);
                 this.textureLayer?.increaseRefCount(bestTextureDescriptor);
 
                 // Dispose existing model. Decreasing the ref count needs to happen after
                 // setting up the new model, because otherwise the ref count might fall to zero
                 // and the texture would be deleted.
-                this.textureLayer?.decreaseRefCount(bestModel.textureDescriptor);
                 bestModel.dispose();
+                this.textureLayer?.decreaseRefCount(bestModel.textureDescriptor);
+
                 continue;
             }
 

@@ -34,6 +34,23 @@ export class GenericCache<K, T> {
         return result;
     }
 
+    remove(key: K) {
+        if (!this.generationMap.has(key))
+            return false;
+
+        if (this.onPreemption) {
+            const removedElement = this.contentMap.get(key);
+            if (removedElement === undefined)
+                throw new Error("element not found");
+
+            this.onPreemption(key, removedElement!);
+        }
+
+        this.contentMap.delete(key);
+        this.generationMap.delete(key);
+        return true;
+    }
+
     age() {
         this.generation++;
     }
