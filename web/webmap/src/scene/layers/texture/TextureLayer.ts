@@ -100,6 +100,14 @@ export abstract class TextureLayer extends Layer<WebGLTexture> {
         return this.cache.get(desc.toString())?.data;
     }
 
+    public increaseRefCount(desc: TileDescriptor) {
+        const elem = this.cache.get(desc.toString());
+        if (!elem)
+            return;
+
+        elem.refCount++;
+    }
+
     public decreaseRefCount(desc: TileDescriptor) {
         const elem = this.cache.get(desc.toString());
         if (!elem)
@@ -107,7 +115,7 @@ export abstract class TextureLayer extends Layer<WebGLTexture> {
 
         elem.refCount--;
 
-        if (elem.refCount === 0) {
+        if (elem.refCount <= 0) {
             this.context.gl?.deleteTexture(elem.data);
             this.cache.delete(desc.toString());
         }

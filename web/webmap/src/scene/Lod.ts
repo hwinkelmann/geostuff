@@ -73,6 +73,20 @@ export class Lod {
         // Approximation for tile width in meters
         const tileMeters = (this.datum.meridianLength / desc.tileStride) * Math.cos(deg2Rad(boundingBox.centerCoordinate.latitude));
 
+        // Calculate how the tile is oriented towards the camera. If we are looking at the tile from the side,
+        // it is acceptable to reduce it's resolution. 
+        const normal = boundingSphere.center.clone().subtract(this.datum.toCarthesian(boundingBox.centerCoordinate)).normalize();
+        const camToCenter = boundingSphere.center.clone().subtract(camera.getCameraPosition()).normalize();
+
+        // Calculate dot product between normal and camera to center vector.
+        // 1 => We're looking straight at the tile, 0 => We're looking at the tile from the side
+        const dot = Math.abs(normal.dot(camToCenter));
+
+        // Biassed dot product, so that we don't reduce resolution too much. This function is applied
+        // to the estimated screen size in pixels at the end.
+        // This is my bias function: https://www.desmos.com/calculator/l4yosjimwq
+        const bias = Math.min(1, 0.5 + dot * dot);
+
         // Calculate distance between camera and tile
         let distCameraVolume = (boundingSphere.center.clone().subtract(camera.getCameraPosition())).length();
 
@@ -86,8 +100,10 @@ export class Lod {
             -distCameraVolume,
         ));
 
-        return projected.x * context.canvas.width / 2;
+        return (projected.x * context.canvas.width / 2) * bias;
     }
+
+    private approximationCache = new GenericCache<string, BoundingSphere>(4096);
 
     public getApproximateBoundingSphere(desc: TileDescriptor, modelCache: GenericCache<string, TileModel>): BoundingSphere {
         const boundingBox = desc.getBounds(this.projection);
@@ -104,6 +120,11 @@ export class Lod {
         // TODO: Adjust boundingBox's elevation to contain min/max elevation. The following
         // code assumes that this happened.
         // We have no idea, so let's guesstimate
+
+        const key = desc.toString();
+        if (this.approximationCache.peek(key))
+            return this.approximationCache.get(key)!;
+
         const numSamples = 25;
         const points: DoubleVector3[] = [];
         for (let z = 0; z < 2; z++)
@@ -129,6 +150,8 @@ export class Lod {
         }
 
         boundingSphere = new BoundingSphere(center, maxDistanceFromCenter * 1.1);
+
+        this.approximationCache.set(key, boundingSphere);
 
         return boundingSphere;
     }

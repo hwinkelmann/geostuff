@@ -35,12 +35,13 @@ export class Scene {
         private elevationLayer: ElevationLayer | undefined,
         private minLevel = 2,
         private maxLevel = 17,
-        maxModelCount = 300,
+        maxModelCount = 1024,
     ) {
         this.lod = new Lod(datum, projection);
 
         this.modelCache = new GenericCache<string, TileModel>(maxModelCount, (_, v) => {
             v.dispose();
+            this.textureLayer?.decreaseRefCount(v.textureDescriptor);
         });
     }
 
@@ -59,8 +60,14 @@ export class Scene {
         const models = this.getBestModels(wishlistDescriptors);
         this.visibleTiles = models.map(m => m.descriptor);
 
-        if (!camera || !this.context.gl || !this.context.tileProgram)
+        const gl = this.context.gl;
+        if (!camera || !gl || !this.context.tileProgram)
             return;
+
+        // Configure fog
+        gl.uniform4fv(gl.getUniformLocation(this.context.tileProgram, "uFogColor"), [0.39, 0.58, 0.94, 1]); // cornflower blue
+        gl.uniform1f(gl.getUniformLocation(this.context.tileProgram, "uFogNear"), 1000);
+        gl.uniform1f(gl.getUniformLocation(this.context.tileProgram, "uFogFar"), 100000000);
 
         for (const model of models)
             this.renderObject(this.context.tileProgram!, camera, model.boundingSphere.center, {
@@ -125,7 +132,7 @@ export class Scene {
 
             const distanceToCamera = -element.boundingSphere.center.distanceTo(camPosition);
 
-            const priority = element.desc.zoom * -10000 - Math.min(9999, distanceToCamera);
+            const priority = element.desc.zoom * -10000 + Math.min(19999, distanceToCamera);
 
             texturesToFetch.push({
                 priority,
@@ -216,6 +223,7 @@ export class Scene {
             if (updateModel) {
                 const tile = new TileModel(this.context, bestTextureDescriptor, desc, this.textureLayer?.getCached(bestTextureDescriptor), tesselationSteps, this.datum, this.projection);
                 this.modelCache.set(desc.toString(), tile);
+                this.textureLayer?.increaseRefCount(bestTextureDescriptor);
 
                 // Dispose existing model. Decreasing the ref count needs to happen after
                 // setting up the new model, because otherwise the ref count might fall to zero
@@ -240,6 +248,7 @@ export class Scene {
 
             if (generateModel) {
                 const tile = new TileModel(this.context, bestTextureDescriptor, desc, this.textureLayer?.getCached(bestTextureDescriptor), tesselationSteps, this.datum, this.projection);
+                this.textureLayer?.increaseRefCount(bestTextureDescriptor);
                 this.modelCache.set(desc.toString(), tile);
                 continue;
             }

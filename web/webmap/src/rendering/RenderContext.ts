@@ -78,7 +78,7 @@ export class RenderContext {
         this.gl?.enable(this.gl.CULL_FACE);
         this.gl?.frontFace(this.gl.CCW);
         
-        this.gl?.clearColor(0.5, 0.5, 0.5, 1.0);
+        this.gl?.clearColor(0.39, 0.58, 0.94, 1.0);
         this.gl?.clearDepth(1.0);
         this.gl?.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
     }
