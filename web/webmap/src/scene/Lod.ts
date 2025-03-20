@@ -39,7 +39,7 @@ export class Lod {
         // const approxScreenSize = this.getTileScreenSize(context, camera, desc, desc.getBounds(this.projection), boundingSphere);
         const approxScreenSize = this.approximateBoundingSphereSize(context, camera, desc, desc.getBounds(this.projection), boundingSphere);
 
-        if (approxScreenSize < 720 || desc.zoom === maxLevel) {
+        if (approxScreenSize < 360 || desc.zoom === maxLevel) {
             // If tile resolution is OK or we're at the maximum level, we're done.
             // Also, we need to be at least at the minimum level
             result.push({
@@ -100,7 +100,7 @@ export class Lod {
             -distCameraVolume,
         ));
 
-        return (projected.x * context.canvas.width / 2) * bias;
+        return (projected.x * context.canvas.clientWidth / 2) * bias;
     }
 
     private approximationCache = new GenericCache<string, BoundingSphere>(4096);
