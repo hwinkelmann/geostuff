@@ -107,7 +107,7 @@ export class TileModel extends IntersectableModel {
 
         this.elevation = elevation ?? this.elevation;
 
-        const vb = TileModel.buildVertexBuffer(gl, this.bounds, this.tesselationSteps, this.elevation?.data, this.datum, this.elevationExaggeration);
+        const vb = TileModel.buildVertexBuffer(gl, this.bounds, this.tesselationSteps, this.elevation?.data, this.datum, this.descriptor, this.elevationExaggeration);
 
         this.vertexBuffer = vb.vertexBuffer;
         this.vertices = vb.vertices;
@@ -145,7 +145,7 @@ export class TileModel extends IntersectableModel {
     /**
      * Samples elevation data and generates a vertex buffer for the model.
      */
-    private static buildVertexBuffer(gl: WebGL2RenderingContext, bounds: BoundingBox, tesselationSteps: number, elevationTile: ElevationTile | undefined, datum: Datum, exaggerateElevation = 1) {
+    private static buildVertexBuffer(gl: WebGL2RenderingContext, bounds: BoundingBox, tesselationSteps: number, elevationTile: ElevationTile | undefined, datum: Datum, descriptor: TileDescriptor, exaggerateElevation = 1) {
         const vertices: DoubleVector3[] = [];
 
         for (let y = -1; y <= tesselationSteps; y++) {
@@ -162,9 +162,9 @@ export class TileModel extends IntersectableModel {
 
                 coordinate.elevation = (elevationTile?.getElevation(coordinate) ?? 0) * exaggerateElevation;
                 if (isEdge)
-                    // Edge seams are just extruded for 20 meters 
+                    // Edge seams are just extruded, depending on the zoom level
                     // ¯\_(ツ)_/¯
-                    coordinate.elevation -= 20;
+                    coordinate.elevation -= (Math.max(0, 18 - descriptor.zoom) ** 2) * 10;
 
                 vertices.push(datum.toCarthesian(coordinate));
             }
