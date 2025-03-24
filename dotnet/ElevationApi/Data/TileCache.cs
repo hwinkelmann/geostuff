@@ -1,6 +1,7 @@
 using ElevationApi.Dem;
 using ICSharpCode.SharpZipLib.GZip;
 using Nitro.Geography;
+using NitroGis.Geography.Mapping;
 
 /// <summary>
 /// Caches generated tiles on disk, so we don't need to re-generate
@@ -24,22 +25,29 @@ public class TileCache {
     /// <summary>
     /// Returns a tile. Checks the cache, and generates it in case of a cache miss.
     /// </summary>
-    /// <param name="bounds">Tile bounds</param>
+    /// <param name="desc">Descriptor</param>
     /// <param name="resolution">Tile resolution</param>
     /// <returns>elevation data</returns>
-    public async Task<byte[]> GetTile(BoundingBox bounds, int resolution)
+    public async Task<byte[]> GetTile(TileDescriptor desc, int resolution)
     {
+        var bounds = desc.GetBounds();
+
         if (_cacheFolder == null)
         {
             // Caching is disabled
             return await GenerateBinaryTile(bounds, resolution);
         }
      
-        var file = GetCacheFilename(bounds, resolution);
+        var file = GetCacheFilename(desc, resolution);
         if (File.Exists(file))
             return await File.ReadAllBytesAsync(file);
 
         var result = await GenerateBinaryTile(bounds, resolution);
+
+        var dir = Path.GetDirectoryName(file);
+        if (dir != null && !Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+
         await File.WriteAllBytesAsync(file, result);
         return result;
     }
@@ -74,16 +82,15 @@ public class TileCache {
             return outMs.ToArray();
         }
     }
-
-    private string GetCacheFilename(BoundingBox bounds, int resolution)
+    private string GetCacheFilename(TileDescriptor desc, int resolution)
     {
-        var key = new byte[18];
-        Buffer.BlockCopy(BitConverter.GetBytes((float)bounds.MinLatitude), 0, key, 0, 4);
-        Buffer.BlockCopy(BitConverter.GetBytes((float)bounds.MaxLatitude), 0, key, 4, 4);
-        Buffer.BlockCopy(BitConverter.GetBytes((float)bounds.MinLongitude), 0, key, 8, 4);
-        Buffer.BlockCopy(BitConverter.GetBytes((float)bounds.MaxLongitude), 0, key, 12, 4);
-        Buffer.BlockCopy(BitConverter.GetBytes((ushort)resolution), 0, key, 16, 2);
-
-        return _cacheFolder + Path.DirectorySeparatorChar + Convert.ToBase64String(key) + ".bin.gzip";
+        return _cacheFolder + 
+            Path.DirectorySeparatorChar + 
+            desc.Zoom.ToString() +
+            Path.DirectorySeparatorChar +
+            desc.X.ToString() +
+            Path.DirectorySeparatorChar +
+            desc.Y.ToString() +
+            ".bin.gz";
     }
 }

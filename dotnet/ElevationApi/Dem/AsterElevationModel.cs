@@ -1,4 +1,5 @@
-﻿using ICSharpCode.SharpZipLib.Zip;
+﻿using ICSharpCode.SharpZipLib;
+using ICSharpCode.SharpZipLib.Zip;
 using Nitro.Data.Cache;
 
 namespace ElevationApi.Dem
@@ -18,7 +19,7 @@ namespace ElevationApi.Dem
         /// </summary>
         private bool[,] dataExists = new bool[361, 181];
 
-        private SimpleCache<int, short[,]> cache = new(32);
+        private SimpleCache<int, short[,]> cache = new(1024);
 
         /// <summary>
         /// Creates a new instance
@@ -124,36 +125,43 @@ namespace ElevationApi.Dem
             if (!File.Exists(filename))
                 return null;
 
-            using (var zipStream = new ZipInputStream(File.OpenRead(filename)))
+            try
             {
-                ZipEntry? zipEntry = null;
+                using (var zipStream = new ZipInputStream(File.OpenRead(filename)))
+                {
+                    ZipEntry? zipEntry = null;
 
-                while (zipEntry == null || !zipEntry.Name.EndsWith("dem.tif"))
-                    zipEntry = zipStream.GetNextEntry();
+                    while (zipEntry == null || !zipEntry.Name.EndsWith("dem.tif"))
+                        zipEntry = zipStream.GetNextEntry();
 
-                // unzip
-                byte[] buffer = new byte[zipEntry.Size];
-                await zipStream.ReadAsync(buffer, 0, 8);
-                await zipStream.ReadAsync(buffer, 0, (int)zipEntry.Size);
+                    // unzip
+                    byte[] buffer = new byte[zipEntry.Size];
+                    await zipStream.ReadAsync(buffer, 0, 8);
+                    await zipStream.ReadAsync(buffer, 0, (int)zipEntry.Size);
 
-                // adjust endianess (aster files are big endian)
-                if (!BitConverter.IsLittleEndian)
-                    for (int i = 0; i < buffer.Length; i += 2)
-                    {
-                        byte dummy = buffer[i];
-                        buffer[i] = buffer[i + 1];
-                        buffer[i + 1] = dummy;
-                    }
+                    // adjust endianess (aster files are big endian)
+                    if (!BitConverter.IsLittleEndian)
+                        for (int i = 0; i < buffer.Length; i += 2)
+                        {
+                            byte dummy = buffer[i];
+                            buffer[i] = buffer[i + 1];
+                            buffer[i + 1] = dummy;
+                        }
 
-                // read data
-                int pos = 0;
-                int size = 3601;
-                var data = new short[size, size];
-                for (int y = 0; y < size; y++)
-                    for (int x = 0; x < size; x++, pos += 2)
-                        data[x, y] = BitConverter.ToInt16(buffer, pos);
+                    // read data
+                    int pos = 0;
+                    int size = 3601;
+                    var data = new short[size, size];
+                    for (int y = 0; y < size; y++)
+                        for (int x = 0; x < size; x++, pos += 2)
+                            data[x, y] = BitConverter.ToInt16(buffer, pos);
 
-                return data;
+                    return data;
+                }
+            } catch (SharpZipBaseException exc)
+            {
+                Console.WriteLine("DEM Tile " + filename + " invalid");
+                return null;
             }
         }
 

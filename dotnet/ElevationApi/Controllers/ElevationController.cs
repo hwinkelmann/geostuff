@@ -64,48 +64,13 @@ public class ElevationController : ControllerBase {
         if (x < 0 || y < 0 || z < 0 || x >= desc.TilesWidth || y >= desc.TilesWidth)
             return badRequest("INVALID_TILE_ADDRESS", "Tile address is invalid");
 
-        var bounds = desc.GetBounds();
         Response.Headers.Append("Content-Encoding", "gzip");
 
         // Enable client side caching
         Response.Headers.Append("Cache-Control", "public, max-age=31536000");
 
-        return File(await _cache.GetTile(bounds, resolution), "application/gzip");
+        return File(await _cache.GetTile(desc, resolution), "application/gzip");
 
-    }
-
-    /// <summary>
-    /// Returns a geotiff containing elevation data of the requested area
-    /// </summary>
-    /// <param name="_minLatitude">Latitude 1</param>
-    /// <param name="_maxLatitude">Latitude 2</param>
-    /// <param name="_minLongitude">Longitude 1</param>
-    /// <param name="_maxLongitude">Longitude 2</param>
-    /// <param name="_resolution">Resolution of the generated tile</param>
-    /// <returns>array of shorts</returns>
-    [HttpGet]
-    [Route("area")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetArea([FromQuery(Name = "minLatitude")] double _minLatitude, [FromQuery(Name = "maxLatitude")] double _maxLatitude, [FromQuery(Name = "minLongitude")] double _minLongitude, [FromQuery(Name = "maxLongitude")] double _maxLongitude, [FromQuery(Name = "resolution")] int _resolution = 256)
-    {
-        // Parameter parsing and range check
-        var resolution = Math.Max(16, Math.Min(512, _resolution));
-        var min = new Coordinate(Math.Min(_minLatitude, _maxLatitude), Math.Min(_minLongitude, _maxLongitude));
-        var max = new Coordinate(Math.Max(_minLatitude, _maxLatitude), Math.Max(_minLongitude, _maxLongitude));
-
-        var bbox = new BoundingBox(min, max);
-        if (bbox.DeltaLatitude < REALLY_SMALL_NUMBER ||
-            bbox.DeltaLongitude < REALLY_SMALL_NUMBER)
-            return badRequest("AREA_TOO_SMALL", "The requested area is too small. Try making it bigger!");
-
-        if (bbox.DeltaLatitude > MAX_AREA_SIZE ||
-            bbox.DeltaLongitude > MAX_AREA_SIZE)
-            return badRequest("AREA_TOO_BIG", "The requested area is too big. Maximum size is " + MAX_AREA_SIZE + "x" + MAX_AREA_SIZE);
-
-        var data = await _cache.GetTile(bbox, resolution);
-        Response.Headers.Append("Content-Encoding", "gzip");
-
-        return File(data, "application/zip");
     }
 
     private BadRequestObjectResult badRequest(string code, string msg)

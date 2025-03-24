@@ -2,7 +2,7 @@ using ElevationApi.Dem;
 
 // Read configration from environment variables
 var dataFolder = Environment.GetEnvironmentVariable("DEM_DATA") ?? @"C:\data\geo\ASTER";
-var cacheFolder = Environment.GetEnvironmentVariable("CACHE_FOLDER");
+var cacheFolder = Environment.GetEnvironmentVariable("CACHE_FOLDER") ?? @"c:\temp\tiles";
 var port = int.Parse(Environment.GetEnvironmentVariable("PORT") ?? "3001");
 
 var elevationModel = new AsterElevationModel(dataFolder);
