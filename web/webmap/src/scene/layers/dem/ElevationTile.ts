@@ -20,7 +20,18 @@ export class ElevationTile {
         const x = ElevationTile.clamp(this.resolution * lonScale, 0, this.resolution - 1);
         const y = ElevationTile.clamp(this.resolution * latScale, 0, this.resolution - 1);
 
-        return this.data[Math.floor(x)][this.resolution - Math.floor(y) - 1];
+        const xLeft = Math.max(0, Math.floor(x));
+        const xRight = Math.min(this.resolution - 1, Math.ceil(x));
+        const yTop = Math.max(0, Math.floor(y));
+        const yBottom = Math.min(this.resolution - 1, Math.ceil(y));
+
+        const dx = x - xLeft;
+        const dy = y - yTop;
+
+        const top = this.data[xLeft][this.resolution - 1 - yTop] * (1 - dx) + this.data[xRight][this.resolution - 1 - yTop] * dx;
+        const bottom = this.data[xLeft][this.resolution - 1 - yBottom] * (1 - dx) + this.data[xRight][this.resolution - 1 - yBottom] * dx;
+
+        return top * (1 - dy) + bottom * dy;
     }
 
     private static clamp(value: number, min: number, max: number) {

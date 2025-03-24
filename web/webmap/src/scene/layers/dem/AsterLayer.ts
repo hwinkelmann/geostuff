@@ -6,7 +6,7 @@ export class AsterLayer extends ElevationLayer {
     constructor(projection: Projection) {
         super(projection, {
             resolution: 256,
-            levels: [8, 10, 12, 14, 16],
+            levels: [6, 8, 10, 12, 14, 16],
         });
     }
 
