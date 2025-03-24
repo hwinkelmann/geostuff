@@ -122,7 +122,6 @@ export abstract class TextureLayer extends Layer<WebGLTexture> {
     }
 
     private preempt() {
-        debugger;
         const unreferenced = Array.from(this.cache.entries()).filter(e => e[1].refCount <= 0).map(e => e[1]);
         const numElementsToRemove = Math.max(1, Math.floor(unreferenced.length * 0.9));
 
