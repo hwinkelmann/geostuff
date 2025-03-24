@@ -5,6 +5,8 @@ import { Projection } from "../../geography/Projection";
 import { DoubleVector3 } from "../../geometry/DoubleVector3";
 import { Ray3 } from "../../geometry/Ray3";
 import { TileDescriptor } from "../../models/TileDescriptor";
+import { ElevationTile } from "../../scene/layers/dem/ElevationTile";
+import { MatchType } from "../../scene/layers/Layer";
 import { IntersectableModel } from "../IntersectableModel";
 import { RenderContext } from "../RenderContext";
 
@@ -15,6 +17,8 @@ export class TileModel extends IntersectableModel {
     public indexBuffer: WebGLBuffer | undefined = undefined;
     public vertexBuffer: WebGLBuffer | undefined = undefined;
     public textureBuffer: WebGLBuffer | undefined = undefined;
+
+    private bounds: BoundingBox;
 
     public color: [number, number, number] = [1, 1, 1];
 
@@ -28,14 +32,23 @@ export class TileModel extends IntersectableModel {
 
     constructor(
         protected context: RenderContext, 
-        public textureDescriptor: TileDescriptor, 
-        public descriptor: TileDescriptor, 
-        public texture: WebGLTexture | undefined,
+        public descriptor: TileDescriptor,
+        public texture: MatchType<WebGLTexture>, 
+        public elevation: MatchType<ElevationTile> | undefined,
         protected tesselationSteps: number,
         protected datum: Datum,
         protected projection: Projection,
+        protected elevationExaggeration: number,
     ) {
         super();
+
+        this.bounds = BoundingBox.fromCoordinates([
+            this.projection.fromDescriptorCoordinate(this.descriptor.x, this.descriptor.y, this.descriptor.zoom),
+            this.projection.fromDescriptorCoordinate(this.descriptor.x + 1, this.descriptor.y + 1, this.descriptor.zoom),
+        ])!;
+
+        this.triCount = (this.tesselationSteps + 1) * (this.tesselationSteps + 1) * 2;
+
         this.init(context);
     }
 
@@ -56,7 +69,8 @@ export class TileModel extends IntersectableModel {
     }
 
     public init(context: RenderContext) {
-        const gl = context.gl;
+        this.context = context;
+        const gl = this.context.gl;
         if (!gl)
             throw new Error("No GL context");
 
@@ -65,21 +79,39 @@ export class TileModel extends IntersectableModel {
         this.indexBuffer = ib.indexBuffer;
         this.indices = ib.indices;
 
-        const bounds = BoundingBox.fromCoordinates([
-            this.projection.fromDescriptorCoordinate(this.descriptor.x, this.descriptor.y, this.descriptor.zoom),
-            this.projection.fromDescriptorCoordinate(this.descriptor.x + 1, this.descriptor.y + 1, this.descriptor.zoom),
-        ])!;
+        this.updateVertexBuffer(this.elevation);
+        this.updateTextureBuffer(this.texture);
 
+    }
 
-        const vb = TileModel.buildVertexBuffer(gl, bounds, this.tesselationSteps, this.datum);
+    public updateTextureBuffer(texture: MatchType<WebGLTexture>) {
+        const gl = this.context.gl;
+        if (!gl)
+            throw new Error("No GL context");
+
+        if (this.textureBuffer)
+            gl.deleteBuffer(this.textureBuffer);
+
+        this.texture = texture;
+
+        this.textureBuffer = TileModel.buildTextureBuffer(gl, this.tesselationSteps, this.descriptor, this.texture.descriptor);
+    }
+
+    public updateVertexBuffer(elevation: MatchType<ElevationTile> | undefined) {
+        const gl = this.context.gl;
+        if (!gl)
+            throw new Error("No GL context");
+
+        if (this.vertexBuffer)
+            gl.deleteBuffer(this.vertexBuffer);
+
+        this.elevation = elevation ?? this.elevation;
+
+        const vb = TileModel.buildVertexBuffer(gl, this.bounds, this.tesselationSteps, this.elevation?.data, this.datum, this.elevationExaggeration);
 
         this.vertexBuffer = vb.vertexBuffer;
         this.vertices = vb.vertices;
         this.boundingSphere = vb.boundingSphere;
-
-        this.textureBuffer = TileModel.buildTextureBuffer(gl, this.tesselationSteps, this.descriptor, this.textureDescriptor);
-
-        this.triCount = (this.tesselationSteps + 1) * (this.tesselationSteps + 1) * 2;
     }
 
     private static buildTextureBuffer(gl: WebGL2RenderingContext, tesselationSteps: number, mapDescriptor: TileDescriptor, textureDescriptor: TileDescriptor) {
@@ -91,12 +123,11 @@ export class TileModel extends IntersectableModel {
                 const xScale = Math.max(0, Math.min(1, x / (tesselationSteps - 1)));
                 const yScale = Math.max(0, Math.min(1, y / (tesselationSteps - 1)));
 
+                // In WebGL texture space 0/0 is the bottom left and 1/1 is the top right corner,
+                // but in images 0/0 is the top left. So we need to flip the coordinates.
                 const xt = textureBounds.minX + xScale * textureBounds.deltaLongitude;
                 const yt = textureBounds.maxY - yScale * textureBounds.deltaLatitude;
                 textureCoordinates.push(xt);
-                
-                // In WebGL texture space 0/0 is the bottom left and 1/1 is the top right corner,
-                // but in images 0/0 is the top left. So we need to flip the coordinates.
                 textureCoordinates.push(yt);
 
                 console.assert(xt >= 0 && xt <= 1 && yt >= 0 && yt <= 1, "Invalid texture coordinates");
@@ -111,7 +142,10 @@ export class TileModel extends IntersectableModel {
         return textureBuffer;
     }
 
-    private static buildVertexBuffer(gl: WebGL2RenderingContext, bounds: BoundingBox, tesselationSteps: number, datum: Datum) {
+    /**
+     * Samples elevation data and generates a vertex buffer for the model.
+     */
+    private static buildVertexBuffer(gl: WebGL2RenderingContext, bounds: BoundingBox, tesselationSteps: number, elevationTile: ElevationTile | undefined, datum: Datum, exaggerateElevation = 1) {
         const vertices: DoubleVector3[] = [];
 
         for (let y = -1; y <= tesselationSteps; y++) {
@@ -126,10 +160,11 @@ export class TileModel extends IntersectableModel {
                     bounds.minLongitude + xScale * bounds.deltaLongitude
                 );
 
-                // TODO: Add real elevation sampling here
-                coordinate.elevation = 0;
+                coordinate.elevation = (elevationTile?.getElevation(coordinate) ?? 0) * exaggerateElevation;
                 if (isEdge)
-                    coordinate.elevation -= 1;
+                    // Edge seams are just extruded for 20 meters 
+                    // ¯\_(ツ)_/¯
+                    coordinate.elevation -= 20;
 
                 vertices.push(datum.toCarthesian(coordinate));
             }
@@ -161,6 +196,11 @@ export class TileModel extends IntersectableModel {
         }
     }
 
+    /**
+     * Generates the index buffer. Basically the index buffer should be identical for every tile.
+     * However, I'm thinking to make the edge seams a bit better than just adding 20 meters, hoping
+     * for the best. And then I'll need index buffers for each tile.
+     */
     private static buildIndexBuffer(gl: WebGL2RenderingContext, tesselationSteps = 4) {
         // Initialize index buffer with 16 bit indices
         const indices: number[] = [];

@@ -15,6 +15,7 @@ import { KeyTracker } from "./KeyTracker";
 import { Sphere } from "./rendering/renderables/Sphere";
 import { fragmentShader, vertexShader } from "./shaders/Gouraud";
 import { DoubleMatrix } from "./geometry/DoubleMatrix";
+import { AsterLayer } from "./scene/layers/dem/AsterLayer";
 
 export function WebMap() {
     // Get a reference to the canvas element, create a webgl context and draw a triangle
@@ -74,14 +75,14 @@ export function WebMap() {
         const textureLayer = new BingAerialLayer(context);
         ref.current.textureLayer = textureLayer;
 
+        const elevationLayer = new AsterLayer(mercatorProjection);
+        ref.current.elevationLayer = elevationLayer;
+
         // ref.current.camera = new CoordinateLookAtCamera(deg2Rad(40), canvasRef, 10, 60000000, new Coordinate(48.286191, 8.207323, 500), new Coordinate(48.285449, 8.143137, 229));
         ref.current.camera = new FirstPersonCamera(deg2Rad(40), canvasRef, 1, 100, 22000000);
 
-        ref.current.camera.setPositionByCoordinate(new Coordinate(0, 0, 18000000));
-        ref.current.camera.setLookAtByCoordinate(new Coordinate(0.1, 0, 0));
-
-        // ref.current.camera?.setPosition(new Coordinate(0, 0, 6000000));
-        // ref.current.camera?.setLookAt(new Coordinate(0.1, 0, 0));
+        ref.current.camera.setPositionByCoordinate(new Coordinate(48.286191, 8.207323, 500));
+        ref.current.camera.setLookAtByCoordinate(new Coordinate(48.285449, 8.143137, 229));
 
         ref.current.keyTracker = new KeyTracker(true);
 
@@ -90,10 +91,9 @@ export function WebMap() {
             Datum.WGS84,
             mercatorProjection,
             textureLayer,
-            undefined,
+            elevationLayer,
             Math.max(textureLayer.minLevel ?? 1, 1),
-            textureLayer.maxLevel ?? 10)
-        // ref.current.elevationLayer = new ElevationLayer(context!);
+            textureLayer.maxLevel ?? 10);
 
         return () => {
             ref.current.keyTracker?.dispose();
@@ -190,9 +190,9 @@ export function WebMap() {
         if (isSelected)
             intersection.model.color = [1, 1, 1];
         else
-            intersection.model.color = [2, 2, 2];
+            intersection.model.color = [1.5, 1.5, 1.5];
         
-        console.log("intersection is ", intersection?.model.descriptor.toString());
+        console.log("intersection is ", intersection?.model.descriptor.toString(), intersection);
     }
 
     // function onMouseDown(e: React.MouseEvent<HTMLCanvasElement, MouseEvent>) {

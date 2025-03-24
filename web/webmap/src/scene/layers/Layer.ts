@@ -10,12 +10,6 @@ export type MatchType<T> = {
      * Data
      */
     data: T;
-
-    /**
-     * Next refinement stage or undefined, if the descriptor is matching the request or is
-     * the best we got.
-     */
-    refinement?: TileDescriptor;
 };
 
 export type ResourceReceivedHandler<T> = (resource: MatchType<T>) => void;
@@ -31,7 +25,7 @@ export abstract class Layer<T> {
      * Returns immediately.
      * @param desc 
      */
-    public abstract getBestMatch(desc: TileDescriptor): MatchType<T> | undefined;
+    public abstract getBestAvailableMatch(desc: TileDescriptor): MatchType<T> | undefined;
 
     protected listeners = new Set<ResourceReceivedHandler<T>>();
 
@@ -53,4 +47,14 @@ export abstract class Layer<T> {
      * Request the loading of resources that stear towards the given wishlist.
      */
     public abstract request(wishlist: ResourceRequestType[]): void;
+
+    /**
+     * Returns the appropriate descriptor for this layer if you want to render the map tile with the given descriptor.
+     * @param mapDescriptor The descriptor of the map tile.
+     */
+    public abstract getAppropriateDescriptor(mapDescriptor: TileDescriptor): TileDescriptor | undefined;
+
+    public abstract increaseRefCount(desc: TileDescriptor): void;
+
+    public abstract decreaseRefCount(desc: TileDescriptor): void;
 }

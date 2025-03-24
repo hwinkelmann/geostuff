@@ -54,9 +54,11 @@ public class ElevationController : ControllerBase {
     /// <param name="resolution">resolution of the tile, defaults to 256</param>
     /// <returns>tiff</returns>
     [HttpGet]
-    [Route("tile")]
+
+    // Add route for the /elevation/z/x/y endpoint
+    [Route("tile/{z}/{x}/{y}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetTile([FromQuery]int x, [FromQuery]int y, [FromQuery]int z, [FromQuery]int resolution = 256)
+    public async Task<IActionResult> GetTile([FromRoute]int x, [FromRoute] int y, [FromRoute] int z, [FromQuery]int resolution = 256)
     {
         var desc = new TileDescriptor(x, y, Math.Max(0, Math.Min(18, z)));
         if (x < 0 || y < 0 || z < 0 || x >= desc.TilesWidth || y >= desc.TilesWidth)
@@ -64,6 +66,9 @@ public class ElevationController : ControllerBase {
 
         var bounds = desc.GetBounds();
         Response.Headers.Append("Content-Encoding", "gzip");
+
+        // Enable client side caching
+        Response.Headers.Append("Cache-Control", "public, max-age=31536000");
 
         return File(await _cache.GetTile(bounds, resolution), "application/gzip");
 

@@ -3,7 +3,7 @@ import { TileDescriptor } from "../models/TileDescriptor";
 /**
  * Converts a response to a promise of the desired type.
  */
-export type ResponseConverter<T, METADATA> = (response: Response, meta: METADATA) => Promise<T>;
+export type ResponseConverter<T, METADATA> = (response: Response, request: ResourceRequest<METADATA>) => Promise<T>;
 
 export type ResourceRequest<METADATA> = {
     url: string,
@@ -12,10 +12,12 @@ export type ResourceRequest<METADATA> = {
     meta?: METADATA | undefined,
 };
 
+export type LoaderDoneType<T, METADATA> = ResourceRequest<METADATA> & {
+    data: T,
+};
+
 export class Loader<T, METADATA> {
-    public onDone?: (data: ResourceRequest<METADATA> & {
-        data: T,
-    }) => void;
+    public onDone?: (data: LoaderDoneType<T, METADATA>) => void;
 
     // TODO: Attach error object
     public onError?: (data: ResourceRequest<METADATA>) => void;
@@ -106,7 +108,7 @@ export class Loader<T, METADATA> {
 
                 // TODO: Remove delay here
                 return new Promise(resolve => setTimeout(resolve, 0))
-                    .then(() => this.onResponse(response, next.meta))
+                    .then(() => this.onResponse(response, next))
                     .then(d => {
                         if (this.onDone)
                             this.onDone({

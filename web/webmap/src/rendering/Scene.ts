@@ -6,7 +6,8 @@ import { Ray3 } from "../geometry/Ray3";
 import { TileDescriptor } from "../models/TileDescriptor";
 import { Camera } from "../scene/Camera";
 import { ElevationLayer } from "../scene/layers/dem/ElevationLayer";
-import { ResourceRequestType } from "../scene/layers/Layer";
+import { ElevationTile } from "../scene/layers/dem/ElevationTile";
+import { MatchType, ResourceRequestType } from "../scene/layers/Layer";
 import { TextureLayer } from "../scene/layers/texture/TextureLayer";
 import { Lod, LodDetails } from "../scene/Lod";
 import { GenericCache } from "../utils/GenericCache";
@@ -41,7 +42,9 @@ export class Scene {
 
         this.modelCache = new GenericCache<string, TileModel>(maxModelCount, (_, v) => {
             v.dispose();
-            this.textureLayer?.decreaseRefCount(v.textureDescriptor);
+            this.textureLayer?.decreaseRefCount(v.texture.descriptor);
+            if (v.elevation)
+                this.elevationLayer?.decreaseRefCount(v.elevation.descriptor);
         });
     }
 
@@ -51,13 +54,19 @@ export class Scene {
     }
 
     public render(camera: Camera) {
+        console.log("Rendering scene");
         const wishlist = this.lod.performLevelOfDetail(this.context, camera, this.minLevel, this.maxLevel, this.modelCache);
         const wishlistDescriptors = wishlist.map(w => w.desc);
 
-        this.refreshModels(wishlistDescriptors);
         this.fetchTextures(camera, wishlist);
+        this.fetchElevations(camera, wishlist);
 
-        const models = this.getBestModels(wishlistDescriptors);
+        // this.refreshModels(wishlistDescriptors);
+        // const models = this.getBestModels(wishlistDescriptors);
+
+        const models = this.getModels(wishlistDescriptors);
+
+
         this.visibleTiles = models.map(m => m.descriptor);
 
         const gl = this.context.gl;
@@ -76,50 +85,179 @@ export class Scene {
                 indexBuffer: model.indexBuffer,
             }, {
                 color: model.color,
-            }, model.texture, model.triCount);
+            }, model.texture.data, model.triCount);
     }
 
-    /**
-     * Returns a list of the models that match the requested tiles best.
-     * This operation is non-blocking and will return immediately. Missing
-     * models will be loaded asynchronously.
-     */
-    private getBestModels(wishlist: TileDescriptor[]): TileModel[] {
-        const bestMatches: TileModel[] = [];
+    private getModels(wishlist: TileDescriptor[]): TileModel[] {
+        const result: TileModel[] = [];
 
-        // Check how we can best satisfy the necessary tiles
-        for (const tile of wishlist) {
-            let parent: TileDescriptor | undefined = tile;
+        for (const desc of wishlist) {
+            const bestTexture = this.textureLayer?.getBestAvailableMatch(desc);
+            const bestElevation = this.elevationLayer?.getBestAvailableMatch(desc);
 
-            do {
+            const model = this.modelCache.peek(desc.toString());
+            if (model) {
+                // Check if better resources arrived in the meantime and update the
+                // buffers if so.
+                this.refreshBuffers(model, bestTexture, bestElevation, desc);
+                result.push(model);
+                continue;
+            }
 
-                const existing = this.modelCache.peek(parent.toString());
-                if (existing) {
-                    bestMatches.push(existing);
-                    break;
-                }
-                parent = parent.getParent();
-            } while (parent);
+            // Sometimes when zooming out, 4 tiles are replaced by one that contains all 4.
+            // In this case it's ok to use these until the new model is ready.
+            const childDescriptors = [
+                new TileDescriptor(desc.x * 2, desc.y * 2, desc.zoom + 1),
+                new TileDescriptor(desc.x * 2 + 1, desc.y * 2, desc.zoom + 1),
+                new TileDescriptor(desc.x * 2, desc.y * 2 + 1, desc.zoom + 1),
+                new TileDescriptor(desc.x * 2 + 1, desc.y * 2 + 1, desc.zoom + 1)
+            ];
+
+            const children = childDescriptors.map(d => this.modelCache.peek(d.toString()));
+
+            if (children.filter(c => c === undefined).length <= 1) {
+                // We have at least 3 of the 4 children. Let's use those for now and
+                // create the tiles that are missing.
+                this.completeQuad(childDescriptors, result);
+                continue;
+            }
+
+            // We have nothing to render for that descriptor yet.
+            // Let's create a new model.
+            if (!bestTexture)
+                continue;
+
+            const tile = new TileModel(
+                this.context,
+                desc,
+                bestTexture,
+                bestElevation,
+                tesselationSteps,
+                this.datum,
+                this.projection,
+                1);
+
+            this.modelCache.set(desc.toString(), tile);
+            this.textureLayer?.increaseRefCount(bestTexture.descriptor);
+            if (bestElevation)
+                this.elevationLayer?.increaseRefCount(bestElevation.descriptor);
+
+            result.push(tile);
         }
 
-        // Remove all tiles that overlap with others
-        const topDownSorted = bestMatches.sort((a, b) => a.textureDescriptor.zoom - b.textureDescriptor.zoom);
-        const result = topDownSorted.filter(m => !topDownSorted.some(other => m.descriptor.getAllParents().includes(other.descriptor)));
-
         // Touch all models used in the result to prevent them from being removed.
-        // Also touch their parents because we might need them later.
-        const allInvolvedTiles = new Set<TileDescriptor>(result.map(m => [m.descriptor, m.descriptor.getAllParents()]).flat() as TileDescriptor[]);
-        allInvolvedTiles.forEach(m => this.modelCache.touch(m.toString()));
+        result.forEach(m => this.modelCache.touch(m.descriptor.toString()));
 
         this.modelCache.age();
 
         return result;
     }
 
+    /**
+     * Completes a quad of tiles by generating the missing ones.
+     */
+    private completeQuad(childDescriptors: TileDescriptor[], result: TileModel[]) {
+        for (const childDescriptor of childDescriptors) {
+            const child = this.modelCache.peek(childDescriptor.toString());
+            if (child)
+                result.push(child);
+            else {
+                const bestChildTexture = this.textureLayer?.getBestAvailableMatch(childDescriptor);
+
+                console.assert(bestChildTexture !== undefined, "No texture for child tile");
+                if (!bestChildTexture)
+                    continue;
+
+                this.textureLayer?.increaseRefCount(bestChildTexture.descriptor);
+
+                const tile = new TileModel(
+                    this.context,
+                    childDescriptor,
+                    bestChildTexture,
+                    this.elevationLayer?.getBestAvailableMatch(childDescriptor),
+                    tesselationSteps,
+                    this.datum,
+                    this.projection,
+                    1);
+
+                this.modelCache.set(childDescriptor.toString(), tile);
+
+                result.push(tile);
+            }
+        }
+    }
+
+    /**
+     * Checks if the model's resources are still the best available ones and updates
+     * the buffers if necessary.
+     */
+    private refreshBuffers(model: TileModel, bestTexture: MatchType<WebGLTexture> | undefined, bestElevation: MatchType<ElevationTile> | undefined, desc: TileDescriptor) {
+        const updateTextureBuffer = model.texture.descriptor !== bestTexture?.descriptor;
+        const updateVertexBuffer = model.elevation?.descriptor !== bestElevation?.descriptor;
+
+        // If better resources arrived in the meantime we can update the model!
+        if (updateTextureBuffer && bestTexture) {
+            this.textureLayer?.increaseRefCount(bestTexture.descriptor);
+            this.textureLayer?.decreaseRefCount(model.texture.descriptor);
+            model.updateTextureBuffer(bestTexture);
+        }
+
+        if (updateVertexBuffer && bestElevation) {
+            console.log("update vertex buffer", desc.toString());
+            this.elevationLayer?.increaseRefCount(bestElevation.descriptor);
+
+            if (model.elevation?.descriptor)
+                this.elevationLayer?.decreaseRefCount(model.elevation?.descriptor);
+
+            model.updateVertexBuffer(bestElevation);
+        }
+    }
+
+    private fetchElevations(camera: Camera, wishlist: LodDetails[]) {
+        const elevationsToFetch: ResourceRequestType[] = [];
+        const camPosition = camera.getCameraPosition();
+
+        const added = new Set<string>();
+        for (const element of wishlist) {   
+            if (this.elevationLayer?.getCached(element.desc))
+                // This elevation is already loaded
+                continue;
+
+            // Find the next elevation to load. It is that tile that is closest to the
+            // one that's already loaded.
+            let parentDescriptors = element.desc.getAllParents(true).reverse().map(d => this.elevationLayer?.getAppropriateDescriptor(d)).filter(d => d !== undefined) as TileDescriptor[];
+
+            const uniq: {[key: number]: TileDescriptor} = {};
+            parentDescriptors.forEach(d => uniq[d.zoom] = d);
+            parentDescriptors = Object.values(uniq).sort((a, b) => b.zoom - a.zoom);
+
+            if (!parentDescriptors.length)
+                continue;
+
+            const elevationDesc = parentDescriptors.find(d => this.elevationLayer?.getCached(d) === undefined);
+
+            if (!elevationDesc || added.has(elevationDesc.toString()))
+                continue;
+
+            added.add(elevationDesc.toString());
+
+            const distanceToCamera = -element.boundingSphere.center.distanceTo(camPosition);
+            const priority = elevationDesc.zoom * -10000 + Math.min(19999, distanceToCamera);
+
+            elevationsToFetch.push({
+                priority,
+                desc: elevationDesc!,
+            });
+        }
+
+        this.elevationLayer?.request(elevationsToFetch);
+    }
+    
     private fetchTextures(camera: Camera, wishlist: LodDetails[]) {
         const texturesToFetch: ResourceRequestType[] = [];
         const camPosition = camera.getCameraPosition();
 
+        const added = new Set<string>();
         for (const element of wishlist) {
             if (this.textureLayer?.getCached(element.desc))
                 // This texture is already loaded
@@ -127,12 +265,16 @@ export class Scene {
 
             // Find the next texture to load. It is that tile that is closest to the
             // one that's already loaded.
-            const parentDescriptors = element.desc.getAllParents(true).reverse().filter(d => d.zoom >= this.minLevel);
+            const parentDescriptors = element.desc.getAllParents(true).reverse().filter(d => d.zoom >= Math.max(this.minLevel, element.desc.zoom - 2));
             const textureDesc = parentDescriptors.find(d => this.textureLayer?.getCached(d) === undefined);
 
-            const distanceToCamera = -element.boundingSphere.center.distanceTo(camPosition);
+            if (!textureDesc || added.has(textureDesc.toString()))
+                continue;
 
-            const priority = element.desc.zoom * -10000 + Math.min(19999, distanceToCamera);
+            added.add(textureDesc.toString());
+
+            const distanceToCamera = -element.boundingSphere.center.distanceTo(camPosition);
+            const priority = textureDesc.zoom * -10000 + Math.min(19999, distanceToCamera);
 
             texturesToFetch.push({
                 priority,
@@ -143,7 +285,81 @@ export class Scene {
         this.textureLayer?.request(texturesToFetch);
     }
 
+    public renderObject(program: WebGLProgram, camera: Camera, modelPosition: DoubleVector3, buffers: {
+        vertexBuffer: WebGLBuffer,
+        textureBuffer?: WebGLBuffer,
+        colorBuffer?: WebGLBuffer,
+        indexBuffer?: WebGLBuffer,
+    }, uniforms: {
+        color?: [number, number, number],
+    },
+        texture: WebGLTexture | undefined,
+        triCount: number) {
+        const gl = this.context.gl;
+        if (!gl)
+            throw new Error("No GL context");
 
+        gl.useProgram(program);
+
+        // The model's origin is the bounding sphere's center, and we need to
+        // calculate the relative position of that to the camera. The usual way
+        // to do this is to multiply the model- and view matrix, but that would
+        // involve very large numbers (the translation part of the model matrix)
+        // which would be multiplied with very small numbers (the rotation part),
+        // leading to a dramatic and visible loss of precision.
+
+        // To remedy this, we're calculating a "model-to-camera" translation matrix,
+        // which only contains relative translation information and thus much
+        // smaller numbers. This translation matrix is then multiplied by the 
+        // rotation part of the view matrix.
+        const cameraPosition = camera.getCameraPosition();
+
+        const modelToCameraTranslation = DoubleMatrix.getTranslationMatrix(
+            modelPosition!.x - cameraPosition!.x,
+            modelPosition!.y - cameraPosition!.y,
+            modelPosition!.z - cameraPosition!.z
+        );
+
+        setMatrices(this.context, program, {
+            projectionMatrix: camera?.getProjectionMatrix(),
+            modelMatrix: modelToCameraTranslation,
+            viewMatrix: camera?.getViewMatrix().resetTranslation(),
+        });
+
+        setBuffers(this.context, program, {
+            vertexBuffer: buffers.vertexBuffer,
+            indexBuffer: buffers?.indexBuffer,
+            colorBuffer: buffers?.colorBuffer,
+            textureCoordBuffer: buffers?.textureBuffer,
+            texture,
+            color: uniforms.color,
+        });
+
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+        if (texture) {
+            // Tell WebGL we want to affect texture unit 0
+            gl.activeTexture(gl.TEXTURE0);
+
+            // Bind the texture to texture unit 0
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+
+            // Tell the shader we bound the texture to texture unit 0
+            gl.uniform1i(this.context.locations.sampler, 0);
+        }
+
+        if (buffers.indexBuffer)
+            gl.drawElements(gl.TRIANGLES, triCount * 3, gl.UNSIGNED_SHORT, 0);
+        else
+            gl.drawArrays(gl.TRIANGLES, 0, triCount * 3);
+    }
+
+    /**
+     * Intersects the scene with a ray and returns the closest intersection.
+     */
     public getIntersection(ray: Ray3) {
         // List of candidate models that the ray could intersect with.
         const candidates: { distance: number, model: TileModel }[] = [];
@@ -198,136 +414,5 @@ export class Scene {
         }
 
         return closestIntersection;
-    }
-
-
-    /**
-     * Checks what we have, and requests the next missing items. Triggers remodelling
-     * of affected models if necessary.
-     * This function is non-blocking and will return immediately.
-     * @param wishlist All the tiles our view is currently wishing for
-     */
-    private refreshModels(wishlist: TileDescriptor[]) {
-        for (const desc of wishlist) {
-            const parentDescriptors = desc.getAllParents(true).filter(d => d.zoom >= this.minLevel);
-
-            const bestModelDescriptor = parentDescriptors.find(d => this.modelCache.peek(d.toString()) !== undefined);
-            const bestModel = this.modelCache.peek(bestModelDescriptor?.toString() ?? "");
-            const bestTextureDescriptor = parentDescriptors.find(d => this.textureLayer?.getCached(d) !== undefined);
-
-            // Check if there's a model that's already generated that could be updated with
-            // a better texture.
-            const updateModel = bestModel !== undefined && bestTextureDescriptor !== undefined &&
-                bestModel.textureDescriptor.zoom < bestTextureDescriptor.zoom;
-
-            if (updateModel) {
-                const tile = new TileModel(this.context, bestTextureDescriptor, desc, this.textureLayer?.getCached(bestTextureDescriptor), tesselationSteps, this.datum, this.projection);
-                if (!bestModel.descriptor.equals(desc))
-                    this.modelCache.remove(bestModel.descriptor.toString());
-
-                this.modelCache.set(desc.toString(), tile);
-                this.textureLayer?.increaseRefCount(bestTextureDescriptor);
-
-                // Dispose existing model. Decreasing the ref count needs to happen after
-                // setting up the new model, because otherwise the ref count might fall to zero
-                // and the texture would be deleted.
-                bestModel.dispose();
-                this.textureLayer?.decreaseRefCount(bestModel.textureDescriptor);
-
-                continue;
-            }
-
-            if (bestModelDescriptor?.equals(desc))
-                // We already have a model for the desired zoom level.
-                // No better resources are available, so let's continue.
-                continue;
-
-            // We need to generate a model. However, we don't just jump to the desired zoom
-            // level. Instead we're walking down the resolution until we get there.            
-            const nextModelDescriptor = parentDescriptors.find(d => bestModelDescriptor?.zoom === (d.zoom - 1)) ?? parentDescriptors.find(p => p.zoom === this.minLevel);
-
-            const generateModel = nextModelDescriptor !== undefined &&
-                bestTextureDescriptor !== undefined &&
-                this.modelCache.peek(nextModelDescriptor.toString()) === undefined;
-
-            if (generateModel) {
-                const tile = new TileModel(this.context, bestTextureDescriptor, desc, this.textureLayer?.getCached(bestTextureDescriptor), tesselationSteps, this.datum, this.projection);
-                this.textureLayer?.increaseRefCount(bestTextureDescriptor);
-                this.modelCache.set(desc.toString(), tile);
-                continue;
-            }
-
-            // Reaching this point can happen during startup, before the initial
-            // root-level tiles are loaded.
-        }
-    }
-
-    public renderObject(program: WebGLProgram, camera: Camera, modelPosition: DoubleVector3, buffers: {
-        vertexBuffer: WebGLBuffer,
-        textureBuffer?: WebGLBuffer,
-        colorBuffer?: WebGLBuffer,
-        indexBuffer?: WebGLBuffer,
-    }, uniforms: {
-        color?: [number, number, number],
-    },
-        texture: WebGLTexture | undefined,
-        triCount: number) {
-        const gl = this.context.gl;
-        if (!gl)
-            throw new Error("No GL context");
-
-        gl.useProgram(program);
-
-        // The model's origin is the bounding sphere's center, and we need to
-        // calculate the relative position of that to the camera. The usual way
-        // to do this is to multiply the model- and view matrix, but that would
-        // involve very large numbers (the translation part of the model matrix)
-        // which would be multiplied with very small numbers (the rotation part),
-        // leading to a loss of precision.
-        // To remedy this, we're calculating a "model-to-camera" translation matrix,
-        // which is then multiplied by the rotation part of the view matrix.
-        const cameraPosition = camera.getCameraPosition();
-
-        const modelToCameraTranslation = DoubleMatrix.getTranslationMatrix(
-            modelPosition!.x - cameraPosition!.x,
-            modelPosition!.y - cameraPosition!.y,
-            modelPosition!.z - cameraPosition!.z
-        );
-
-        setMatrices(this.context, program, {
-            projectionMatrix: camera?.getProjectionMatrix(),
-            modelMatrix: modelToCameraTranslation,
-            viewMatrix: camera?.getViewMatrix().resetTranslation(),
-        });
-
-        setBuffers(this.context, program, {
-            vertexBuffer: buffers.vertexBuffer,
-            indexBuffer: buffers?.indexBuffer,
-            colorBuffer: buffers?.colorBuffer,
-            textureCoordBuffer: buffers?.textureBuffer,
-            texture,
-            color: uniforms.color,
-        });
-
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-        if (texture) {
-            // Tell WebGL we want to affect texture unit 0
-            gl.activeTexture(gl.TEXTURE0);
-
-            // Bind the texture to texture unit 0
-            gl.bindTexture(gl.TEXTURE_2D, texture);
-
-            // Tell the shader we bound the texture to texture unit 0
-            gl.uniform1i(this.context.locations.sampler, 0);
-        }
-
-        if (buffers.indexBuffer)
-            gl.drawElements(gl.TRIANGLES, triCount * 3, gl.UNSIGNED_SHORT, 0);
-        else
-            gl.drawArrays(gl.TRIANGLES, 0, triCount * 3);
     }
 }

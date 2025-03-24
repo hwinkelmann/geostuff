@@ -38,7 +38,7 @@ export abstract class TextureLayer extends Layer<WebGLTexture> {
         return texture;
     });
 
-    constructor(protected context: RenderContext, public minLevel: number, public maxLevel: number) {
+    constructor(protected context: RenderContext, public minLevel: number, public maxLevel: number, private maxCacheSize: number = 1500) {
         super();
 
         this.doneHandler.bind(this);
@@ -59,6 +59,9 @@ export abstract class TextureLayer extends Layer<WebGLTexture> {
             data: texture,
             refCount: 0,
         });
+
+        if (this.cache.size > this.maxCacheSize)
+            this.preempt();
 
         for (const listener of this.listeners ?? [])
             listener({
@@ -116,53 +119,44 @@ export abstract class TextureLayer extends Layer<WebGLTexture> {
             return;
 
         elem.refCount--;
+    }
 
-        if (elem.refCount <= 0) {
+    private preempt() {
+        debugger;
+        const unreferenced = Array.from(this.cache.entries()).filter(e => e[1].refCount <= 0).map(e => e[1]);
+        const numElementsToRemove = Math.max(1, Math.floor(unreferenced.length * 0.9));
+
+        for (let i = 0; i < numElementsToRemove; i++) {
+            const randomIndex = Math.floor(Math.random() * unreferenced.length);
+            const key = unreferenced[randomIndex].desc.toString();
+            const elem = this.cache.get(key);
+            if (!elem)
+                continue;
+
             this.context.gl?.deleteTexture(elem.data);
-            this.cache.delete(desc.toString());
+            this.cache.delete(key);
+
+            unreferenced.splice(randomIndex, 1);
         }
     }
 
-    public getBestMatch(desc: TileDescriptor): MatchType<WebGLTexture> | undefined {
-        let bestMatch: TileDescriptor | undefined = undefined;
-
-        for (const key of this.cache.keys()) {
-            const elem = this.cache.get(key)!;
-
-            if (elem.desc.includesOrEquals(desc)) {
-                if (bestMatch === undefined) {
-                    bestMatch = elem.desc;
-                    continue;
-                }
-
-                const elemDelta = desc.zoom - elem.desc.zoom;
-                if (elemDelta < 0)
-                    // This tile is more detailed than what we need.
-                    // We can't use it.
-                    continue;
-
-                const bestMatchDelta = desc.zoom - bestMatch.zoom;
-
-                if (elemDelta < bestMatchDelta)
-                    bestMatch = elem.desc;
-
-                if (elemDelta === 0)
-                    // We can't find a better match
-                    break;
+    public getBestAvailableMatch(desc: TileDescriptor): MatchType<WebGLTexture> | undefined {
+        while (desc.zoom >= this.minLevel) {
+            const elem = this.cache.get(desc.toString());
+            if (elem) {
+                return {
+                    descriptor: elem.desc,
+                    data: elem.data,
+                };
             }
+
+            desc = desc.getParent()!;
         }
 
-        if (bestMatch === undefined)
-            return undefined;
+        return undefined;
+    }
 
-        // Increase ref count. This function is called when a mesh is created,
-        // and that mesh will use this texture.
-        const elem = this.cache.get(bestMatch.toString())!;
-        elem.refCount++;
-
-        return {
-            descriptor: elem.desc,
-            data: elem.data,
-        };
+    public getAppropriateDescriptor(mapDescriptor: TileDescriptor): TileDescriptor {
+        return mapDescriptor;
     }
 }

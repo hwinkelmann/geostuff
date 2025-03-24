@@ -64,6 +64,15 @@ export class TileDescriptor {
     }
 
     /**
+     * Makes the current descriptor the same as the parent descriptor.
+     */
+    public up() {
+        this.x = Math.floor(this.x / 2);
+        this.y = Math.floor(this.y / 2);
+        this.zoom--;
+    }
+
+    /**
      * Gets the bounding box of the tile in the given projection.
      */
     public getBounds(projection: Projection): BoundingBox {

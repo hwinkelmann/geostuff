@@ -37,7 +37,7 @@ export class Lod {
 
         // Check how big the tile is on the screen
         // const approxScreenSize = this.getTileScreenSize(context, camera, desc, desc.getBounds(this.projection), boundingSphere);
-        const approxScreenSize = this.approximateBoundingSphereSize(context, camera, desc, desc.getBounds(this.projection), boundingSphere);
+        const approxScreenSize = this.approximateBoundingSphereScreenSize(context, camera, desc, desc.getBounds(this.projection), boundingSphere);
 
         if (approxScreenSize < 360 || desc.zoom === maxLevel) {
             // If tile resolution is OK or we're at the maximum level, we're done.
@@ -68,7 +68,7 @@ export class Lod {
      * @param boundingSphere Bounding sphere in ECEF coordinates
      * @returns Number of pixels that the bounding sphere would occupy on the screen
      */
-    private approximateBoundingSphereSize(context: RenderContext, camera: Camera, desc: TileDescriptor, boundingBox: BoundingBox, boundingSphere: BoundingSphere): number {
+    private approximateBoundingSphereScreenSize(context: RenderContext, camera: Camera, desc: TileDescriptor, boundingBox: BoundingBox, boundingSphere: BoundingSphere): number {
         // Calculate distance between camera and bounding sphere center
         // Approximation for tile width in meters
         const tileMeters = (this.datum.meridianLength / desc.tileStride) * Math.cos(deg2Rad(boundingBox.centerCoordinate.latitude));
@@ -105,6 +105,7 @@ export class Lod {
 
     private approximationCache = new GenericCache<string, BoundingSphere>(4096);
 
+
     public getApproximateBoundingSphere(desc: TileDescriptor, modelCache: GenericCache<string, TileModel>): BoundingSphere {
         const boundingBox = desc.getBounds(this.projection);
 
@@ -124,6 +125,14 @@ export class Lod {
         const key = desc.toString();
         if (this.approximationCache.peek(key))
             return this.approximationCache.get(key)!;
+
+        // If a parent model is loaded already, use it's elevation
+        const parent = desc.getParent();
+        if (parent && modelCache.peek(parent.toString())) {
+            const parentElevationTile = modelCache.peek(parent.toString())!.elevation?.data;
+            boundingBox.minElevation = parentElevationTile?.minElevation ?? boundingBox.minElevation;
+            boundingBox.maxElevation = parentElevationTile?.maxElevation ?? boundingBox.maxElevation;
+        }
 
         const numSamples = 25;
         const points: DoubleVector3[] = [];
