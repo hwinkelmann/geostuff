@@ -4,7 +4,7 @@ import { TextureLayer } from "./TextureLayer";
 
 export class BingAerialLayer extends TextureLayer {
     constructor(context: RenderContext) {
-        super(context, 1, 18);
+        super(context, 1, 19);
     }
 
     protected getTileUrl(tile: TileDescriptor): string {

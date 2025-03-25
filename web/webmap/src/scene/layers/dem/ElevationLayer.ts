@@ -1,7 +1,7 @@
 import { Projection } from "../../../geography/Projection";
 import { TileDescriptor } from "../../../models/TileDescriptor";
 import { Loader, LoaderDoneType } from "../../Loader";
-import { Layer, MatchType, ResourceRequestType } from "../Layer";
+import { Layer, LayerStats, MatchType, ResourceRequestType } from "../Layer";
 import { ElevationTile } from "./ElevationTile";
 
 export abstract class ElevationLayer extends Layer<ElevationTile> {
@@ -72,16 +72,16 @@ export abstract class ElevationLayer extends Layer<ElevationTile> {
             refCount: 0,
         });
 
-        for (const listener of this.listeners ?? [])
-            listener({
-                data: data.data,
-                descriptor: data.descriptor,
-            });
+        if (this.cache.size > this.maxCacheSize)
+            this.preempt();
     }
+
+    private maxCacheSize: number;
 
     constructor(private projection: Projection, options?: {
         resolution?: number,
         levels: number[],
+        maxCacheSize?: number,
     }) {
         super();
         this.resolution = options?.resolution ?? 256;
@@ -94,6 +94,25 @@ export abstract class ElevationLayer extends Layer<ElevationTile> {
         this.loader.onDone = (data) => {
             this.doneHandler(data);
         };
+
+        this.maxCacheSize = options?.maxCacheSize ?? 1000;
+    }
+
+    private preempt() {
+        const unreferenced = Array.from(this.cache.entries()).filter(e => e[1].refCount <= 0).map(e => e[1]);
+        const numElementsToRemove = Math.max(1, Math.floor(unreferenced.length * 0.9));
+
+        for (let i = 0; i < numElementsToRemove; i++) {
+            const randomIndex = Math.floor(Math.random() * unreferenced.length);
+            const key = unreferenced[randomIndex].desc.toString();
+            const elem = this.cache.get(key);
+            if (!elem)
+                continue;
+
+            this.cache.delete(key);
+
+            unreferenced.splice(randomIndex, 1);
+        }
     }
 
     public request(wishlist: ResourceRequestType[]) {
@@ -115,6 +134,15 @@ export abstract class ElevationLayer extends Layer<ElevationTile> {
     }
 
     protected abstract getTileUrl(tile: TileDescriptor): string;
+
+    public getStats(): LayerStats {
+        return {
+            referenced: Array.from(this.cache.values()).filter(x => x.refCount > 0).length,
+            queued: this.loader.getStats().queued,
+            loading: this.loader.getStats().loading,
+            size: this.cache.size,
+        };
+    }
 
     public getCached(desc: TileDescriptor): ElevationTile | undefined {
         return this.cache.get(desc.toString())?.data;

@@ -8,7 +8,7 @@ import { mercatorProjection } from "./geography/MercatorProjection";
 import { ElevationLayer } from "./scene/layers/dem/ElevationLayer";
 import { TextureLayer } from "./scene/layers/texture/TextureLayer";
 import { BingAerialLayer } from "./scene/layers/texture/BingAerialLayer";
-import { Scene } from "./rendering/Scene";
+import { RenderStats, Scene } from "./rendering/Scene";
 import { FirstPersonCamera } from "./scene/FirstPersonCamera";
 import { DoubleVector3 } from "./geometry/DoubleVector3";
 import { KeyTracker } from "./KeyTracker";
@@ -20,6 +20,8 @@ import { AsterLayer } from "./scene/layers/dem/AsterLayer";
 export function WebMap() {
     // Get a reference to the canvas element, create a webgl context and draw a triangle
     const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    const [stats, setStats] = useState<RenderStats | undefined>(undefined);
 
     const [context, setContext] = useState<RenderContext | null>(null);
 
@@ -79,7 +81,7 @@ export function WebMap() {
         ref.current.elevationLayer = elevationLayer;
 
         // ref.current.camera = new CoordinateLookAtCamera(deg2Rad(40), canvasRef, 10, 60000000, new Coordinate(48.286191, 8.207323, 500), new Coordinate(48.285449, 8.143137, 229));
-        ref.current.camera = new FirstPersonCamera(deg2Rad(40), canvasRef, 1, 100, 22000000);
+        ref.current.camera = new FirstPersonCamera(deg2Rad(40), canvasRef, 1, 10, 220000);
 
         ref.current.camera.setPositionByCoordinate(new Coordinate(48.286191, 8.207323, 500));
         ref.current.camera.setLookAtByCoordinate(new Coordinate(48.285449, 8.143137, 229));
@@ -111,7 +113,83 @@ export function WebMap() {
         };
     }, [context]);
 
-    return <canvas ref={canvasRef} onClick={onClick} className="webmap" />;
+    return <>
+        <canvas ref={canvasRef} onClick={onClick} className="webmap" />
+        <div className="stats">
+            <table>
+                <tbody>
+                    <tr>
+                        <th colSpan={2}>Models</th>
+                    </tr>
+
+                    <tr>
+                        <td>Rendered</td>
+                        <td>{stats?.modelCount}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            {stats?.texture !== undefined && <table>
+                <tbody>
+
+                    <tr>
+                        <th colSpan={2}>Texture Layer</th>
+                    </tr>
+
+                    <tr>
+                        <td>Cached</td>
+                        <td>{stats?.texture?.size}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Referenced</td>
+                        <td>{stats?.texture?.referenced}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Queued</td>
+                        <td>{stats?.texture?.queued}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Loading</td>
+                        <td>{stats?.texture?.loading}</td>
+                    </tr>
+                </tbody>
+            </table>}
+
+
+            {stats?.elevation !== undefined && <table>
+                <tbody>
+
+                    <tr>
+                        <th colSpan={2}>Elevation Layer</th>
+                    </tr>
+
+                    <tr>
+                        <td>Cached</td>
+                        <td>{stats?.elevation?.size}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Referenced</td>
+                        <td>{stats?.elevation?.referenced}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Queued</td>
+                        <td>{stats?.elevation?.queued}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Loading</td>
+                        <td>{stats?.elevation?.loading}</td>
+                    </tr>
+
+                </tbody>
+            </table>}
+        </div>
+    </>;
 
     function drawScene(context: RenderContext) {
         if (!ref.current || !context || !context.gl)
@@ -142,7 +220,7 @@ export function WebMap() {
         resizeCanvasToDisplaySize(context.canvas);
         context.clear();
 
-        ref.current.scene?.render(ref.current.camera!);
+        setStats(ref.current.scene?.render(ref.current.camera!));
 
         renderDebugSpheres(context);
 
@@ -154,7 +232,7 @@ export function WebMap() {
             return;
 
         context.gl.useProgram(dbg.current.program);
-        
+
         for (const sphere of dbg.current.spheres) {
             setBuffers(context, dbg.current.program, {
                 vertexBuffer: sphere.vertexBuffer,
@@ -191,7 +269,7 @@ export function WebMap() {
             intersection.model.color = [1, 1, 1];
         else
             intersection.model.color = [1.5, 1.5, 1.5];
-        
+
         console.log("intersection is ", intersection?.model.descriptor.toString(), intersection);
     }
 

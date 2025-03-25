@@ -3,3 +3,30 @@
     width: 100%;
     height: 100%;
 }
+
+.stats {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    padding: 1rem;
+
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+
+    align-items: start;
+}
+
+.stats table {
+    width: 150px;
+}
+
+.stats table th {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.stats table tr td:nth-child(2) {
+    text-align: right;
+}

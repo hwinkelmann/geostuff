@@ -19,6 +19,13 @@ export type ResourceRequestType = {
     priority: number;
 };
 
+export type LayerStats = {
+    size: number;
+    queued: number;
+    referenced: number;
+    loading: number;
+};
+
 export abstract class Layer<T> {
     /**
      * Returns the currently loaded resource that matches the requested descriptor best.
@@ -26,22 +33,6 @@ export abstract class Layer<T> {
      * @param desc 
      */
     public abstract getBestAvailableMatch(desc: TileDescriptor): MatchType<T> | undefined;
-
-    protected listeners = new Set<ResourceReceivedHandler<T>>();
-
-    /**
-     * Add a listener that will be called when a resource is received.
-     */
-    public addListener(listener: ResourceReceivedHandler<T>) {
-        this.listeners.add(listener);
-    }
-
-    /**
-     * Remove a listener that was previously added.
-     */
-    public removeListener(listener: ResourceReceivedHandler<T>) {
-        this.listeners.delete(listener);
-    }
 
     /**
      * Request the loading of resources that stear towards the given wishlist.
@@ -57,4 +48,6 @@ export abstract class Layer<T> {
     public abstract increaseRefCount(desc: TileDescriptor): void;
 
     public abstract decreaseRefCount(desc: TileDescriptor): void;
+
+    public abstract getStats(): LayerStats;
 }

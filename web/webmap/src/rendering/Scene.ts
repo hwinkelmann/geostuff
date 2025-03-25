@@ -7,7 +7,7 @@ import { TileDescriptor } from "../models/TileDescriptor";
 import { Camera } from "../scene/Camera";
 import { ElevationLayer } from "../scene/layers/dem/ElevationLayer";
 import { ElevationTile } from "../scene/layers/dem/ElevationTile";
-import { MatchType, ResourceRequestType } from "../scene/layers/Layer";
+import { LayerStats, MatchType, ResourceRequestType } from "../scene/layers/Layer";
 import { TextureLayer } from "../scene/layers/texture/TextureLayer";
 import { Lod, LodDetails } from "../scene/Lod";
 import { GenericCache } from "../utils/GenericCache";
@@ -16,6 +16,12 @@ import { RenderContext } from "./RenderContext";
 import { setBuffers, setMatrices } from "./Utils";
 
 const tesselationSteps = 42;
+
+export type RenderStats = {
+    modelCount: number;
+    texture?: LayerStats;
+    elevation?: LayerStats;
+}
 
 export class Scene {
     public lod: Lod;
@@ -53,8 +59,7 @@ export class Scene {
         this.textureLayer?.dispose();
     }
 
-    public render(camera: Camera) {
-        console.log("Rendering scene");
+    public render(camera: Camera): RenderStats | undefined {
         const wishlist = this.lod.performLevelOfDetail(this.context, camera, this.minLevel, this.maxLevel, this.modelCache);
         const wishlistDescriptors = wishlist.map(w => w.desc);
 
@@ -86,6 +91,15 @@ export class Scene {
             }, {
                 color: model.color,
             }, model.texture.data, model.triCount);
+
+        const textureLayerStats = this.textureLayer?.getStats();
+        const elevationLayerStats = this.elevationLayer?.getStats();
+
+        return {
+            modelCount: models.length,
+            texture: textureLayerStats,
+            elevation: elevationLayerStats,
+        };
     }
 
     private getModels(wishlist: TileDescriptor[]): TileModel[] {
@@ -104,6 +118,26 @@ export class Scene {
                 continue;
             }
 
+            // Check if we have the best resources available for the tile we want to render.
+            if (bestTexture && bestTexture.descriptor.equals(desc) &&
+                (!this.elevationLayer || this.elevationLayer.getAppropriateDescriptor(desc)?.equals(bestElevation?.descriptor))) {
+                // We have the best resources available. Let's create the model.
+                const tile = new TileModel(
+                    this.context,
+                    desc,
+                    bestTexture,
+                    bestElevation,
+                    tesselationSteps,
+                    this.datum,
+                    this.projection,
+                    1);
+
+                result.push(tile);
+                this.updateCache(tile);
+                continue;
+            }
+
+
             // Sometimes when zooming out, 4 tiles are replaced by one that contains all 4.
             // In this case it's ok to use these until the new model is ready.
             const childDescriptors = [
@@ -119,6 +153,8 @@ export class Scene {
                 // We have at least 3 of the 4 children. Let's use those for now and
                 // create the tiles that are missing.
                 this.completeQuad(childDescriptors, result);
+
+                // However, we do want the parent tile to load!
                 continue;
             }
 
@@ -137,12 +173,10 @@ export class Scene {
                 this.projection,
                 1);
 
-            this.modelCache.set(desc.toString(), tile);
-            this.textureLayer?.increaseRefCount(bestTexture.descriptor);
-            if (bestElevation)
-                this.elevationLayer?.increaseRefCount(bestElevation.descriptor);
+            this.updateCache(tile);
 
             result.push(tile);
+            continue;
         }
 
         // Touch all models used in the result to prevent them from being removed.
@@ -151,6 +185,20 @@ export class Scene {
         this.modelCache.age();
 
         return result;
+    }
+
+    private updateCache(tile: TileModel) {
+        const existing = this.modelCache.peek(tile.descriptor.toString());
+        this.modelCache.set(tile.descriptor.toString(), tile);
+        this.textureLayer?.increaseRefCount(tile.texture.descriptor);
+        if (tile.elevation)
+            this.elevationLayer?.increaseRefCount(tile.elevation.descriptor);
+
+        if (existing) {
+            this.textureLayer?.decreaseRefCount(existing.texture.descriptor);
+            if (existing.elevation)
+                this.elevationLayer?.decreaseRefCount(existing.elevation.descriptor);
+        }
     }
 
     /**
@@ -180,7 +228,7 @@ export class Scene {
                     this.projection,
                     1);
 
-                this.modelCache.set(childDescriptor.toString(), tile);
+                this.updateCache(tile);
 
                 result.push(tile);
             }
@@ -213,12 +261,12 @@ export class Scene {
         }
     }
 
-    private fetchElevations(camera: Camera, wishlist: LodDetails[]) {
+    private fetchElevations(camera: Camera, wishlist: LodDetails[], numParentsToLoad = 2) {
         const elevationsToFetch: ResourceRequestType[] = [];
         const camPosition = camera.getCameraPosition();
 
         const added = new Set<string>();
-        for (const element of wishlist) {   
+        for (const element of wishlist) {
             if (this.elevationLayer?.getCached(element.desc))
                 // This elevation is already loaded
                 continue;
@@ -227,32 +275,33 @@ export class Scene {
             // one that's already loaded.
             let parentDescriptors = element.desc.getAllParents(true).reverse().map(d => this.elevationLayer?.getAppropriateDescriptor(d)).filter(d => d !== undefined) as TileDescriptor[];
 
-            const uniq: {[key: number]: TileDescriptor} = {};
+            const uniq: { [key: number]: TileDescriptor } = {};
             parentDescriptors.forEach(d => uniq[d.zoom] = d);
             parentDescriptors = Object.values(uniq).sort((a, b) => b.zoom - a.zoom);
 
             if (!parentDescriptors.length)
                 continue;
 
-            const elevationDesc = parentDescriptors.find(d => this.elevationLayer?.getCached(d) === undefined);
+            const elevationRequests = parentDescriptors.filter(d => this.elevationLayer?.getCached(d) === undefined);
 
-            if (!elevationDesc || added.has(elevationDesc.toString()))
-                continue;
+            for (const elevationRequest of elevationRequests) {
+                if (!elevationRequest || added.has(elevationRequest.toString()))
+                    continue;
 
-            added.add(elevationDesc.toString());
+                added.add(elevationRequest.toString());
 
-            const distanceToCamera = -element.boundingSphere.center.distanceTo(camPosition);
-            const priority = elevationDesc.zoom * -10000 + Math.min(19999, distanceToCamera);
+                const priority = elevationRequest.zoom * -10000;
 
-            elevationsToFetch.push({
-                priority,
-                desc: elevationDesc!,
-            });
+                elevationsToFetch.push({
+                    priority,
+                    desc: elevationRequest!,
+                });
+            }
         }
 
         this.elevationLayer?.request(elevationsToFetch);
     }
-    
+
     private fetchTextures(camera: Camera, wishlist: LodDetails[]) {
         const texturesToFetch: ResourceRequestType[] = [];
         const camPosition = camera.getCameraPosition();

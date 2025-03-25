@@ -24,6 +24,13 @@ export class Loader<T, METADATA> {
 
     private queue: ResourceRequest<METADATA>[] = [];
 
+    public getStats() {
+        return {
+            queued: this.queue.length,
+            loading: this.ongoingRequests.length,
+        };
+    }
+
     private ongoingRequests: {
         request: ResourceRequest<METADATA>,
         promise: Promise<void>,

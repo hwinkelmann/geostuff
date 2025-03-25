@@ -19,7 +19,7 @@ namespace ElevationApi.Dem
         /// </summary>
         private bool[,] dataExists = new bool[361, 181];
 
-        private SimpleCache<int, short[,]> cache = new(1024);
+        private SimpleCache<int, short[,]> cache = new(555);
 
         /// <summary>
         /// Creates a new instance

@@ -1,7 +1,7 @@
 import { TileDescriptor } from "../../../models/TileDescriptor";
 import { RenderContext } from "../../../rendering/RenderContext";
 import { Loader } from "../../Loader";
-import { Layer, MatchType, ResourceRequestType } from "../Layer";
+import { Layer, LayerStats, MatchType, ResourceRequestType } from "../Layer";
 
 export abstract class TextureLayer extends Layer<WebGLTexture> {
     protected abstract getTileUrl(tile: TileDescriptor): string;
@@ -62,17 +62,9 @@ export abstract class TextureLayer extends Layer<WebGLTexture> {
 
         if (this.cache.size > this.maxCacheSize)
             this.preempt();
-
-        for (const listener of this.listeners ?? [])
-            listener({
-                descriptor: desc,
-                data: texture,
-            });
     }
 
     public dispose() {
-        this.listeners.clear();
-
         for (const key of this.cache.keys())
             this.context.gl?.deleteTexture(this.cache.get(key)?.data ?? null);
 
@@ -157,5 +149,13 @@ export abstract class TextureLayer extends Layer<WebGLTexture> {
 
     public getAppropriateDescriptor(mapDescriptor: TileDescriptor): TileDescriptor {
         return mapDescriptor;
+    }
+
+    public getStats(): LayerStats {
+        return {
+            ...this.loader.getStats(),
+            size: this.cache.size,
+            referenced: Array.from(this.cache.values()).filter(e => e.refCount > 0).length,
+        };
     }
 }
