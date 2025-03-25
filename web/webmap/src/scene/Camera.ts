@@ -1,3 +1,4 @@
+import { Datum } from "../geography/Datum";
 import { DoubleMatrix } from "../geometry/DoubleMatrix";
 import { DoubleVector3 } from "../geometry/DoubleVector3";
 import { Ray3 } from "../geometry/Ray3";
@@ -169,5 +170,31 @@ export abstract class Camera {
                 return false;
         }
         return true;
+    }
+
+    /**
+     * Adjusts the near- and far clipping planes based on the camera position and the datum.
+     * @param datum Datum to use, typically WGS84.
+     */
+    public setNearFar(datum: Datum) {
+        // We cannot look beyond the horizon, so calculate the distance to the horizon and
+        // use that as far clipping plane.
+        const camHeight = this.getCameraPosition().length();
+
+        // Calculate position distance to the center of the earth at the given camera position.
+        // This should be close to datum.a, but the earth is ellipsoidal, so it's not exactly that.
+        const camCoords = datum.fromCarthesian(this.getCameraPosition()!);
+        camCoords.elevation = 0;
+        const groundHeight = datum.toCarthesian(camCoords).length();
+        if (camHeight !== undefined && groundHeight !== undefined) {
+            const minFar = 20000;
+            if (camHeight > groundHeight)
+                this.far = Math.max(minFar, Math.sqrt(camHeight * camHeight - groundHeight * groundHeight));
+            else
+                this.far = minFar;
+
+            // Calculate near clipping plane based on camera height
+            this.near = Math.max(10, (camHeight - groundHeight) / 1000);
+        }
     }
 }

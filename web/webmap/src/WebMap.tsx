@@ -123,9 +123,15 @@ export function WebMap() {
                     </tr>
 
                     <tr>
-                        <td>Rendered</td>
-                        <td>{stats?.modelCount}</td>
+                        <td>Cached</td>
+                        <td>{stats?.models?.cached}</td>
                     </tr>
+
+                    <tr>
+                        <td>Rendered</td>
+                        <td>{stats?.models?.rendered}</td>
+                    </tr>
+
                 </tbody>
             </table>
 
@@ -213,24 +219,7 @@ export function WebMap() {
         const delta = kt.getDragDelta();
         ref.current.camera?.rotate(delta.x * -0.0005, delta.y * -0.0005);
 
-        ref.current.camera!.far = ecefPosition.length() ?? 22000000;
-
-        // We cannot look beyond the horizon, so calculate the distance to the horizon and
-        // use that as far clipping plane.
-        const camHeight = ref.current.camera?.getCameraPosition().length();
-
-        // Calculate position distance to the center of the earth at the given camera position.
-        // This should be close to Datum.WGS84.a, but the earth is ellipsoidal, so it's not exactly that.
-        const camCoords = Datum.WGS84.fromCarthesian(ref.current.camera?.getCameraPosition()!);
-        camCoords.elevation = 0;
-        const groundHeight = Datum.WGS84.toCarthesian(camCoords).length();
-        if (camHeight !== undefined && groundHeight !== undefined) {
-            const minFar = 20000;
-            if (camHeight > groundHeight)
-                ref.current.camera!.far = Math.max(minFar, Math.sqrt(camHeight * camHeight - groundHeight * groundHeight));
-            else 
-                ref.current.camera!.far = minFar;
-        }
+        ref.current.camera?.setNearFar(Datum.WGS84);
 
         ref.current.camera?.update();
 

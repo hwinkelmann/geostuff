@@ -18,7 +18,10 @@ import { setBuffers, setMatrices } from "./Utils";
 const tesselationSteps = 42;
 
 export type RenderStats = {
-    modelCount: number;
+    models: {
+        cached: number;
+        rendered: number;
+    },
     texture?: LayerStats;
     elevation?: LayerStats;
 }
@@ -96,7 +99,10 @@ export class Scene {
         const elevationLayerStats = this.elevationLayer?.getStats();
 
         return {
-            modelCount: models.length,
+            models: {
+                cached: this.modelCache.getSize(),
+                rendered: models.length,
+            },
             texture: textureLayerStats,
             elevation: elevationLayerStats,
         };

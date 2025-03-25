@@ -34,6 +34,10 @@ export class GenericCache<K, T> {
         return result;
     }
 
+    getSize() {
+        return this.contentMap.size;
+    }
+    
     remove(key: K) {
         if (!this.generationMap.has(key))
             return false;
