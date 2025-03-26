@@ -13,7 +13,7 @@ export class IntersectableModel {
     /**
      * Intersects a ray (in model space) with the model
      * @param modelSpaceRay Ray in model space
-     * @returns Intersection information if the ray intersects the model, undefined otherwise
+     * @returns Intersection information if the ray intersects the model, undefined otherwise. Intersection point is in model space.
      */
     protected intersect(modelSpaceRay: Ray3): IntersectionType | undefined {
         let closestIntersection: IntersectionType | undefined = undefined;

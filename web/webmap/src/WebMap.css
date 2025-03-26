@@ -30,3 +30,10 @@
 .stats table tr td:nth-child(2) {
     text-align: right;
 }
+
+.copyIcon {
+    width: 16px;
+    height: 16px;
+    margin-right: 0.5rem;
+    cursor: pointer;
+}

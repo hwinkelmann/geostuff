@@ -6,6 +6,11 @@ export class Coordinate {
         return Coordinate.bearingTo(this.latitude, this.longitude, coordinate.latitude, coordinate.longitude);
     }
 
+    /**
+     * Calculate the bearing between two coordinates
+     * @returns the bearing in degrees
+     */
+
     public static bearingTo(fromLatitude: number, fromLongitude: number, toLatitude: number, toLongitude: number): number {
         if (fromLatitude === toLatitude && fromLongitude === toLongitude) {
             return 0;
@@ -31,6 +36,14 @@ export class Coordinate {
         const ew = (this.longitude >= 0) ? "E" : "W";
 
         return `${Math.abs(this.latitude).toFixed(5)}° ${ns}, ${Math.abs(this.longitude).toFixed(5)}° ${ew}`;
+    }
+
+    public toStringWithElevation(): string {
+        return this.toString() + ", " + (this.elevation === undefined ? "" : this.elevation.toFixed(2)) + "m";
+    }
+
+    public toGoogleString(): string {
+        return `${this.latitude}${this.latitude < 0 ? "S" : "N"},${this.longitude}${this.longitude < 0 ? "W" : "E"}`;
     }
 
     public equals(coord: Coordinate | undefined): boolean {

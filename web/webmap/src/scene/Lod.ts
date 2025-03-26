@@ -10,6 +10,7 @@ import { deg2Rad } from "../rendering/Utils";
 import { GenericCache } from "../utils/GenericCache";
 import { BoundingSphere } from "./BoundingSphere";
 import { Camera } from "./Camera";
+import { ElevationLayer } from "./layers/dem/ElevationLayer";
 
 export type LodDetails = {
     desc: TileDescriptor;
@@ -18,7 +19,7 @@ export type LodDetails = {
 };
 
 export class Lod {
-    constructor(private datum: Datum, private projection: Projection) {
+    constructor(private datum: Datum, private projection: Projection, private elevationLayer?: ElevationLayer) {
     }
 
     public performLevelOfDetail(context: RenderContext, camera: Camera, minLevel: number, maxLevel: number, modelCache: GenericCache<string, TileModel>): LodDetails[] {
@@ -40,6 +41,15 @@ export class Lod {
         const approxScreenSize = this.approximateBoundingSphereScreenSize(context, camera, desc, desc.getBounds(this.projection), boundingSphere);
 
         if (approxScreenSize < 360 || desc.zoom === maxLevel) {
+            /*
+            // perform "back tile culling" for tiles that we can consider "flat enough",
+            // meaning, we're close enough to the ground.
+            const tileNormal = boundingSphere.center.clone().normalize().transform(camera.viewMatrix.resetTranslation());
+            const dot = tileNormal.dot(camera.getViewMatrix().getFrontVector());
+            if (dot < -0.8)
+                return;
+            */
+
             // If tile resolution is OK or we're at the maximum level, we're done.
             // Also, we need to be at least at the minimum level
             result.push({
@@ -122,10 +132,6 @@ export class Lod {
         // code assumes that this happened.
         // We have no idea, so let's guesstimate
 
-        const key = desc.toString();
-        if (this.approximationCache.peek(key))
-            return this.approximationCache.get(key)!;
-
         // If a parent model is loaded already, use it's elevation
         const parent = desc.getParent();
         if (parent && modelCache.peek(parent.toString())) {
@@ -133,6 +139,16 @@ export class Lod {
             boundingBox.minElevation = parentElevationTile?.minElevation ?? boundingBox.minElevation;
             boundingBox.maxElevation = parentElevationTile?.maxElevation ?? boundingBox.maxElevation;
         }
+
+        const bestElevationTile = this.elevationLayer?.getBestAvailableMatch(desc);
+        if (bestElevationTile) {
+            boundingBox.minElevation = bestElevationTile.data.minElevation - 500;
+            boundingBox.maxElevation = bestElevationTile.data.maxElevation + 500;
+        }
+
+        const key = boundingBox.toString();
+        if (this.approximationCache.peek(key))
+            return this.approximationCache.get(key)!;
 
         const numSamples = 25;
         const points: DoubleVector3[] = [];

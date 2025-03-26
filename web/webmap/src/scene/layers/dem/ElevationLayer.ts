@@ -130,6 +130,8 @@ export abstract class ElevationLayer extends Layer<ElevationTile> {
             });
         }
 
+        this.loader.prune(wishlist.map(w => w.desc));
+
         this.loader.processQueue();
     }
 

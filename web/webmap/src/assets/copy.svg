@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="31.135" height="32" version="1.1" viewBox="0 0 31.135 32" xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+ <title>copz</title>
+ <g transform="translate(-2.4324 -2)" fill="#ececec" data-name="Слой 3">
+  <path d="m21.459 9.7838h-17.297a1.7298 1.7298 0 0 0-1.7297 1.7297v20.757a1.7298 1.7298 0 0 0 1.7297 1.7297h17.297a1.7298 1.7298 0 0 0 1.7297-1.7297v-20.757a1.7298 1.7298 0 0 0-1.7297-1.7297zm-1.7297 20.757h-13.838v-17.297h13.838z"/>
+  <path d="m31.838 2h-17.297a1.7298 1.7298 0 0 0-1.7297 1.7297v4.3243h3.4595v-2.5946h13.838v17.297h-5.1892v3.4595h6.9189a1.7298 1.7298 0 0 0 1.7297-1.7297v-20.757a1.7298 1.7298 0 0 0-1.7297-1.7297z"/>
+ </g>
+ <metadata>
+  <rdf:RDF>
+   <cc:Work rdf:about="">
+    <dc:title>copz</dc:title>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+</svg>

@@ -16,6 +16,9 @@ import { Sphere } from "./rendering/renderables/Sphere";
 import { fragmentShader, vertexShader } from "./shaders/Gouraud";
 import { DoubleMatrix } from "./geometry/DoubleMatrix";
 import { AsterLayer } from "./scene/layers/dem/AsterLayer";
+import { TileDescriptor } from "./models/TileDescriptor";
+import { BoundingSphere } from "./scene/BoundingSphere";
+import CopyIcon from "./assets/copy.svg";
 
 export function WebMap() {
     // Get a reference to the canvas element, create a webgl context and draw a triangle
@@ -32,6 +35,12 @@ export function WebMap() {
         scene?: Scene;
         animationFrame?: number;
         keyTracker?: KeyTracker;
+        selected?: {
+            descriptor: TileDescriptor;
+            boundingSphere: BoundingSphere;
+            intersection: DoubleVector3;
+            coordinate: Coordinate;
+        }
     }>({});
 
     const dbg = useRef<{
@@ -83,8 +92,12 @@ export function WebMap() {
         // ref.current.camera = new CoordinateLookAtCamera(deg2Rad(40), canvasRef, 10, 60000000, new Coordinate(48.286191, 8.207323, 500), new Coordinate(48.285449, 8.143137, 229));
         ref.current.camera = new FirstPersonCamera(deg2Rad(40), canvasRef, 1, 10, 220000);
 
-        ref.current.camera.setPositionByCoordinate(new Coordinate(48.286191, 8.207323, 500));
-        ref.current.camera.setLookAtByCoordinate(new Coordinate(48.285449, 8.143137, 229));
+        // // Hausach
+        // ref.current.camera.setPositionByCoordinate(new Coordinate(48.286191, 8.207323, 500));
+        // ref.current.camera.setLookAtByCoordinate(new Coordinate(48.285449, 8.143137, 229));
+
+        ref.current.camera.setPositionByCoordinate(new Coordinate(46.80851, 8.71458, 3000));
+        ref.current.camera.setLookAtByCoordinate(new Coordinate(46.71054, 8.60752, 830.10));
 
         ref.current.keyTracker = new KeyTracker(true);
 
@@ -114,8 +127,28 @@ export function WebMap() {
     }, [context]);
 
     return <>
-        <canvas ref={canvasRef} onClick={onClick} className="webmap" />
+        <canvas ref={canvasRef} onDoubleClick={selectHandler} className="webmap" />
         <div className="stats">
+            {ref.current.selected && <table style={{ width: "200px" }}>
+                <tbody>
+                    <tr>
+                        <th colSpan={2}>Selected Tile</th>
+                    </tr>
+                    <tr>
+                        <td colSpan={2}>
+                            <img title="copy descriptor" className="copyIcon" src={CopyIcon} onClick={copyToClipboard(ref.current.selected.descriptor.toString())} />
+                            {ref.current.selected.descriptor.toString()}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colSpan={2}>
+                            <img title="copy coordinate" className="copyIcon" src={CopyIcon} onClick={copyToClipboard(ref.current.selected.coordinate.toGoogleString())} />
+                            {ref.current.selected.coordinate.toStringWithElevation()}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>}
+
             <table>
                 <tbody>
                     <tr>
@@ -257,7 +290,7 @@ export function WebMap() {
 
     }
 
-    function onClick(e: React.MouseEvent<HTMLCanvasElement, MouseEvent>) {
+    function selectHandler(e: React.MouseEvent<HTMLCanvasElement, MouseEvent>) {
         if (!ref.current || !context || !context.gl)
             return;
 
@@ -267,16 +300,23 @@ export function WebMap() {
             return;
 
         const intersection = ref.current.scene?.getIntersection(ray);
-        if (!intersection)
+        if (!intersection) {
+            ref.current.selected = undefined;
             return;
+        }
+
+        ref.current.selected = {
+            descriptor: intersection.model.descriptor,
+            boundingSphere: intersection.model.boundingSphere,
+            intersection: intersection.intersection,
+            coordinate: Datum.WGS84.fromCarthesian(intersection.intersection),
+        };
 
         const isSelected = intersection.model.color[0] > 1;
         if (isSelected)
             intersection.model.color = [1, 1, 1];
         else
             intersection.model.color = [1.5, 1.5, 1.5];
-
-        console.log("intersection is ", intersection?.model.descriptor.toString(), intersection);
     }
 
     // function onMouseDown(e: React.MouseEvent<HTMLCanvasElement, MouseEvent>) {
@@ -305,5 +345,11 @@ export function WebMap() {
         const y = (e.clientY - rect!.top) * scaleY;
 
         return { x, y };
+    }
+
+    function copyToClipboard(text: string) {
+        return () => {
+            navigator.clipboard.writeText(text);
+        };
     }
 }

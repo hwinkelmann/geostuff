@@ -3,7 +3,7 @@ import { Coordinate } from "../../geography/Coordinate";
 import { Datum } from "../../geography/Datum";
 import { Projection } from "../../geography/Projection";
 import { DoubleVector3 } from "../../geometry/DoubleVector3";
-import { Ray3 } from "../../geometry/Ray3";
+import { IntersectionType, Ray3 } from "../../geometry/Ray3";
 import { TileDescriptor } from "../../models/TileDescriptor";
 import { ElevationTile } from "../../scene/layers/dem/ElevationTile";
 import { MatchType } from "../../scene/layers/Layer";
@@ -164,7 +164,7 @@ export class TileModel extends IntersectableModel {
                 if (isEdge)
                     // Edge seams are just extruded, depending on the zoom level
                     // ¯\_(ツ)_/¯
-                    coordinate.elevation -= (Math.max(0, 18 - descriptor.zoom) ** 2) * 10;
+                    coordinate.elevation -= (Math.max(1, 18 - descriptor.zoom) ** 2) * 10;
 
                 vertices.push(datum.toCarthesian(coordinate));
             }
@@ -230,16 +230,23 @@ export class TileModel extends IntersectableModel {
     /**
      * Calculates the intersection of a ray with the model
      * @param ray Ray in world space
-     * @returns 
+     * @returns Intersection data in world space or undefined, if the ray does not intersect the model
      */
-    public intersectRay(ray: Ray3) {
+    public intersectRay(ray: Ray3): IntersectionType | undefined {
         // Convert ray into model space, which is just shifted by the bounding sphere center
         const modelSpaceRay = new Ray3(
             ray.origin.clone().subtract(this.boundingSphere.center),
             ray.direction,
         );
 
-        return this.intersect(modelSpaceRay);
+        const result = this.intersect(modelSpaceRay);
+        if (!result)
+            return undefined;
+
+        return {
+            ...result,
+            point: result?.point?.add(this.boundingSphere.center),
+        };
     }
 
     private static xy(x: number, y: number, tesselationSteps: number) {

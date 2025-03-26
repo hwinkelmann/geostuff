@@ -47,7 +47,7 @@ export class Scene {
         private maxLevel = 17,
         maxModelCount = 1024,
     ) {
-        this.lod = new Lod(datum, projection);
+        this.lod = new Lod(datum, projection, this.elevationLayer);
 
         this.modelCache = new GenericCache<string, TileModel>(maxModelCount, (_, v) => {
             v.dispose();
@@ -267,9 +267,8 @@ export class Scene {
         }
     }
 
-    private fetchElevations(camera: Camera, wishlist: LodDetails[], numParentsToLoad = 2) {
+    private fetchElevations(camera: Camera, wishlist: LodDetails[]) {
         const elevationsToFetch: ResourceRequestType[] = [];
-        const camPosition = camera.getCameraPosition();
 
         const added = new Set<string>();
         for (const element of wishlist) {
@@ -283,7 +282,7 @@ export class Scene {
 
             const uniq: { [key: number]: TileDescriptor } = {};
             parentDescriptors.forEach(d => uniq[d.zoom] = d);
-            parentDescriptors = Object.values(uniq).sort((a, b) => b.zoom - a.zoom);
+            parentDescriptors = Object.values(uniq).sort((a, b) => a.zoom - b.zoom);
 
             if (!parentDescriptors.length)
                 continue;
@@ -296,7 +295,7 @@ export class Scene {
 
                 added.add(elevationRequest.toString());
 
-                const priority = elevationRequest.zoom * -10000;
+                const priority = -elevationRequest.zoom;
 
                 elevationsToFetch.push({
                     priority,
