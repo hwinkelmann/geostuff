@@ -1,50 +1,31 @@
-# React + TypeScript + Vite
+# What is this
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is a WIP project still, but aims at becoming something like a digital globe React component. It overlays a texture layer of your choice with elevation, a bit like Google Earth does.
 
-Currently, two official plugins are available:
+![The alps](assets/alps.png)
+![Global view](assets/globe.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+# Where to fetch elevation data
+I'm using ASTER data here, and you can download that over at [https://search.earthdata.nasa.gov](https://search.earthdata.nasa.gov):
 
-## Expanding the ESLint configuration
+ - Select a region with the spatial selection tool
+ - In the "Instruments" section, select ASTER
+ - Download the map tiles into a folder on your machine.
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+# How to configure
 
-- Configure the top-level `parserOptions` property like this:
+You need to run both the C# elevation server in the `dotnet/ElevationApi` folder as well as the vite development server (`web/webmap`).
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+## Running the elevation server
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+Set the following environment variables:
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+ - `DEM_DATA`: This should point to the folder where you've downloaded the ASTER tiles to
+ - `CACHE_FOLDER`: To speed things up, tiles can be cached. Especially generating lower zoom levels takes quite some time, so you want to cache those. Provide a path to a blank folder and this will happen.
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+ You can (and probably should) call the `prefillCache` method to pre-populate the cache folder. Please do so at least for zoom level 6.
+
+ ## Running the vite dev server
+
+ No surprises here, just navigate to `web/webmap` and run `yarn dev`.
+
