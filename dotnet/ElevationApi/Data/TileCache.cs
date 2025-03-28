@@ -22,6 +22,23 @@ public class TileCache {
         _elevation = elevation;
     }
 
+    private void prefillCache(int[] zoomLevels)
+    {
+        foreach (var zoom in zoomLevels)
+        {
+            var stride = Math.Pow(2, zoom);
+
+            for (int x=0; x<stride; x++)
+                for (int y=0; y<stride; y++)
+                {
+                    var desc = new TileDescriptor(x, y, zoom);
+                    Console.WriteLine("Prepopulating cache at " + desc.ToString());
+
+                    GetTile(desc, 256).Wait();
+                }
+        }
+    }
+
     /// <summary>
     /// Returns a tile. Checks the cache, and generates it in case of a cache miss.
     /// </summary>
