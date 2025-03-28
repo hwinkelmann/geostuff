@@ -15,7 +15,7 @@ import { TileModel } from "./renderables/TileModel";
 import { RenderContext } from "./RenderContext";
 import { setBuffers, setMatrices } from "./Utils";
 
-const tesselationSteps = 42;
+const tesselationSteps = 16;
 
 export type RenderStats = {
     models: {
